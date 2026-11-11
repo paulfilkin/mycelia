@@ -283,6 +283,8 @@ Edits are building blocks meant to be called inside `Change` (section 8):
   families that are now empty, or one-partner families with no children and no facts, and moves
   the home person to the first person when needed.
 - `DetachChild` and `DetachPartner` remove one link and drop the family if nothing is left.
+  `DetachChild` also drops a family left with one partner, no children and no facts, as
+  `RemovePerson` does; otherwise it stayed as an Unknown spouse card the person panel can't remove.
 - `PrunePlaces` removes places no fact uses that have no coordinates and no notes.
 - `Counts()` gives people, families, places, sources, media and distinct surnames for the home
   page and status bar.
@@ -787,6 +789,9 @@ person...") and a delete button.  Four tabs:
   marriage-date order, as a card: the spouse (or Unknown spouse with Add spouse),
   relationship type and status boxes, the couple facts with the same editor, the children in birth
   order with a nature box and a detach button, Add child, Link existing child and End this link.
+  Link existing child on a card leaves out only that family's children and partners, so a child
+  of the person's other family can be moved into it (`PersonActions.LinkExistingChild`; from the
+  right-click menu, with no family, every child of the person is left out).
   Add spouse, Link existing spouse (and Add child when there is no family yet; Set spouse order...
   when there are two or more).  The siblings with their relation, and Add sibling.
 
@@ -1285,7 +1290,9 @@ changes nothing and leaves no empty undo step; then it runs its change through `
 Each change tool has a `Describe` sentence for its approval card ("Add a Baptism fact to Arthur
 Ashworth: date 1 Sep 1884, place Leeds.").  A fact already in the tree is named with its date as
 typed (`FactLabel`: "the Birth (Abt. 1801) of Hannah Sutcliffe"), so a citation or change aimed at
-the wrong fact can be seen before it is approved.
+the wrong fact can be seen before it is approved.  `link_child`'s card adds the child's parents in
+any other family ("Arthur Ashworth is already a child of Thomas Ashworth & Ellen Barraclough."), so
+a person of the same name from another family can be seen before it is linked.
 
 **Partners with no name.**  A person whose given name and surname are each empty, "?" or "Unknown"
 (`IsUnnamed`) stands for someone not yet identified.  `add_person` as a spouse, and `link_spouse`
@@ -1895,6 +1902,8 @@ the program doesn't have:
   never added again as a second person.  Added after the same test, in which the model, told the
   name of a wife recorded as "?", added her as a second partner, so her son kept "?" as his mother.
   `add_person` and `link_spouse` refuse such a partner unless told it is someone else (section 22.3).
+- In the same test the model linked a namesake from another family as the man's son.
+  `link_child`'s approval card now names the child's parents in any other family (section 22.3).
 
 ---
 
@@ -2043,7 +2052,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
-| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3). |
+| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2). |
 | 11 November 2026 | 0.2.0 | Moving the pedigree up and down (15.2): the end cards' arrow is a button, a down button lists the focus person's children, and a double-click on the tree centres it without opening the Person view. |
 | 11 November 2026 | 0.2.0 | The right-click menu for a person (15.2, `PersonMenu`, 3) on the tree, the family strip and the index; Make home person in Main menu > Person (14). |
 | 11 November 2026 | 0.2.0 | Releases on GitHub (20): step 6 of releasing a version, the same signed installer as the updater's, built and signed on the publisher's computer. |

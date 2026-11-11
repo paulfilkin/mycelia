@@ -349,7 +349,10 @@ public sealed class TreeDocument
     public void DetachChild(Family f, Person child)
     {
         f.Children.RemoveAll(c => c.PersonId == child.Id);
-        if (f.Partner1Id is null && f.Partner2Id is null && f.Children.Count == 0) Data.Families.Remove(f);
+        // A family left with no children and at most one partner and no facts is no family at all (as RemovePerson
+        // leaves it); otherwise it lingers as an "Unknown spouse" card the person panel can't remove.
+        if (f.Children.Count == 0 && (f.Partner1Id is null && f.Partner2Id is null || (f.Partner1Id is null || f.Partner2Id is null) && f.Facts.Count == 0))
+            Data.Families.Remove(f);
     }
 
     public void DetachPartner(Family f, Person partner)

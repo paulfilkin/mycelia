@@ -351,7 +351,7 @@ public sealed partial class AssistantTools
                     return $"{child.DisplayName} is now a child of {Doc.CoupleName(fam)} (family {fam.Id}).";
                 });
             },
-            args => $"Make {NameOf(args, "child_id")} a child of {NameOf(args, "parent_id")}."),
+            args => $"Make {NameOf(args, "child_id")} a child of {NameOf(args, "parent_id")}." + OtherParentsNote(args)),
 
         Write("unlink", "Unlink from a family",
             "Takes a person out of a family: a child from their parents, or a partner from a couple. Nobody is deleted.",
@@ -599,6 +599,21 @@ public sealed partial class AssistantTools
         var text = $"Added {made!.DisplayName} ({made.Id})";
         if (relation is not null) text += $" as the {relation} of {relative!.DisplayName}" + (into is not null ? $" (family {into.Id})" : "");
         return text + ".";
+    }
+
+    /// <summary>
+    /// The link_child card's note when the child already has parents in another family ("Arthur Ashworth is already a
+    /// child of Thomas Ashworth &amp; Ellen Barraclough."), so linking the wrong person of the same name can be seen before it is approved.
+    /// From a test with a real model (11 November 2026), which linked a namesake from another family as a man's son.
+    /// </summary>
+    private string OtherParentsNote(JsonObject args)
+    {
+        if (Doc.GetPerson(args.Str("child_id")) is not { } child || Doc.GetPerson(args.Str("parent_id")) is not { } parent) return "";
+        var target = Doc.GetFamily(args.Str("family_id")) ?? Doc.SpouseFamilies(parent).FirstOrDefault();
+        var others = Doc.ParentFamilies(child)
+            .Where(f => f != target && (f.Partner1Id is not null || f.Partner2Id is not null))
+            .Select(f => Doc.CoupleName(f)).ToList();
+        return others.Count == 0 ? "" : $"  {child.DisplayName} is already a child of {string.Join(" and of ", others)}.";
     }
 
     // ---- partners with no name ----

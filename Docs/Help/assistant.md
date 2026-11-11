@@ -83,7 +83,7 @@ If an answer is cut short because it is longer than the **Longest answer** setti
 
 ## Approvals
 
-Tools that change the tree, write files or read web addresses ask first, and so do MCP servers' tools unless you choose otherwise.  The pane shows an amber card headed **Allow this?**, with a sentence saying what will happen (for example "Add a Baptism fact to Arthur Ashworth: date 1 Sep 1884, place Leeds."), the tool and its source.  **Show details** shows the arguments.  A card about a fact already in the tree gives the fact's date, such as "the Birth (Abt. 1801) of Hannah Sutcliffe", so you can see which fact a citation or change is for.
+Tools that change the tree, write files or read web addresses ask first, and so do MCP servers' tools unless you choose otherwise.  The pane shows an amber card headed **Allow this?**, with a sentence saying what will happen (for example "Add a Baptism fact to Arthur Ashworth: date 1 Sep 1884, place Leeds."), the tool and its source.  **Show details** shows the arguments.  A card about a fact already in the tree gives the fact's date, such as "the Birth (Abt. 1801) of Hannah Sutcliffe", so you can see which fact a citation or change is for.  A card for linking a child says when that person is already a child of another couple, such as "Arthur Ashworth is already a child of Thomas Ashworth & Ellen Barraclough.", so you can see when the Assistant has picked someone else of the same name.
 
 - **Allow** runs it this once.
 - **Always allow** runs it, and lets this tool run without asking from now on.  You can change that again under [Built-in tools](#built-in-tools), or for an MCP server's tool in Options > MCP servers.

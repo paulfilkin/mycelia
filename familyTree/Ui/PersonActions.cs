@@ -112,7 +112,13 @@ public static class PersonActions
 
     public static void LinkExistingChild(AppState state, Person parent, Family? family)
     {
-        var exclude = state.Doc.Children(parent).Append(parent);
+        // From a family's card, only that family's children and its partners are left out: a child of the person's other
+        // family must be choosable, to move them into this one.
+        var exclude = family is null
+            ? state.Doc.Children(parent).Append(parent)
+            : family.Children.Select(c => state.Doc.GetPerson(c.PersonId))
+                .Concat(new[] { state.Doc.GetPerson(family.Partner1Id), state.Doc.GetPerson(family.Partner2Id), parent })
+                .OfType<Person>();
         var child = Dialogs.PickPerson(state.Doc, "Link a child", $"Choose a child of {parent.DisplayName}", exclude);
         if (child is null) return;
         state.Doc.Change(() =>

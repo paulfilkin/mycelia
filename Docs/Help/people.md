@@ -117,8 +117,8 @@ The **Family** tab shows the person's relatives and how they are linked:
   - The spouse, with the marriage date, or **Add spouse** when the other partner is unknown.
   - **Relationship** (**Spouse**, **Partner**, **Friend**, **Single**, **Other**, **Unknown** or **Private**) and **Status** (**Unknown**, **Ongoing**, **Divorced**, **Deceased**, **Separated**, **Annulled**, **Private**, **Other** or **None**).
   - **Couple facts**, such as the marriage, with **Add** for a new one.  They are edited in the same way as the person's own facts.
-  - **Children**, in birth order, each with a box for how the child is related to this person and a button to detach the child from the family.
-  - **Add child**, **Link existing child** and **End this link**.  **End this link** removes the spouse from the person's family without deleting anyone; any children stay with the person.
+  - **Children**, in birth order, each with a box for how the child is related to this person and a button to detach the child from the family.  When the last child is detached from a family with no spouse and no couple facts, the family is removed, so no empty **Unknown spouse** card is left.
+  - **Add child**, **Link existing child** and **End this link**.  **Link existing child** lists everyone except this family's own children, so a child recorded in the person's other family can be added to this one; detach them from the other family afterwards.  **End this link** removes the spouse from the person's family without deleting anyone; any children stay with the person.
 - Under the cards: **Add spouse**, **Link existing spouse** and, with two or more spouses, **Set spouse order...**  See [Facts, dates and sources](facts-and-sources.md#spouse-order).
 - **Siblings:** each brother or sister with how they are related ("brother", "half sister"), and **Add sibling**.
 

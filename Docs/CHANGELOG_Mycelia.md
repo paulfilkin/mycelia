@@ -28,6 +28,14 @@ understand what changed without reading the diff.
   Before, it could add the named person as a second partner, leaving the children with "?".  It
   adds another partner beside one with no name only when the new partner is someone else, and the
   approval card then says so.
+- **Linking a child warns about other parents.**  When the Assistant asks to link someone as a
+  child and that person is already a child of another couple, the approval card says so, so a
+  person of the same name from another family isn't linked by mistake.
+- **Link existing child works across a person's families.**  On a family's card in the Family
+  tab, the list now leaves out only that family's children.  Before, it left out every child of the
+  person, so a child recorded with the wrong partner couldn't be moved to the right one.
+- **No empty "Unknown spouse" cards.**  Detaching the last child from a family with no spouse and
+  no couple facts now removes the family.  Before, the empty card stayed, with no way to remove it.
 - **Asked to find something, the Assistant searches** without first asking whether it may.  Sites
   that aren't on its list still ask before they are read.
 
