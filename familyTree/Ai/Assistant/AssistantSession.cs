@@ -671,6 +671,15 @@ public sealed class AssistantSession
         builder.AppendLine("- People, families, facts, places and sources are named by id in the tools; find ids with search_people, get_person, get_family, list_places and list_sources rather than guessing them. In replies, call them by their names; give an id only when the person asks for it.");
         builder.AppendLine("- Dates are kept exactly as typed. Write them in a form the program reads: \"12 Mar 1890\", \"Mar 1890\", \"1890\", \"Abt. 1850\", \"Bef. 1850\", \"Aft. 1850\", \"Cal. 1850\", \"Bet. 1850 and 1855\". Check an unusual one with parse_date. Places go most local part first: \"Hebden Bridge, Yorkshire, England\".");
         builder.AppendLine("- When you add or change a fact from a record or source, cite it with add_citation (the source, and the page, entry, reference or web address in detail). Never add a fact you inferred as if it were recorded: say what you inferred and ask, or record it with \"Abt.\" or \"Cal.\" and a note saying how it was worked out.");
+        // From a test with a real model (11 November 2026): it cited a parish register entry of 1842 on a Birth of
+        // "Abt. 1841", filled the citation's detail and extract with words the person's citation didn't contain, and put
+        // the citation's own timestamp in accessed.
+        builder.AppendLine("- Cite a record on the fact for the event it records: a baptism or christening entry supports a Baptism or Christening fact and a burial entry a Burial fact, not the Birth or Death. When the person has no fact for that event, add it with add_fact and cite it there; when you can't tell what event a record is of, ask.");
+        builder.AppendLine("- When the person gives you a citation, put its parts in add_citation's fields and add nothing it doesn't say: the collection or register as the source, the record's own address as url, and in text only words quoted from the record, never the citation itself. Give accessed only for the date the record was looked at.");
+        // From the same test: told the name of a wife recorded as "?", it added her as a second partner instead.
+        builder.AppendLine("- A parent or partner recorded with no name (\"?\") stands for a real person not yet identified. When you learn who they are, name that record with update_person (or merge_people a record already added into it); never add a second person for them.");
+        // From the same test: asked where to find the citation, it described panels and icons the program doesn't have.
+        builder.AppendLine("- When the person asks how to do or find something in Mycelia, call read_help and answer from what it gives, naming the panels, buttons and menus it names. Never describe a screen, button or menu the help doesn't mention; if the help doesn't cover it, say so.");
         builder.AppendLine("- Partner 1 of a couple is the man where known. A child's relationship to each parent can be Natural, Adopted, Step, Foster and so on.");
         builder.AppendLine("- Living people's details may be withheld from you (the context says how). Never guess or search for them; ask the person, and you may add what they tell you.");
         builder.AppendLine("- Every change is one step the person can undo, and the changes of one request can be reverted together from the pane. After changing the tree, say what you changed in a short list, and select_person the person concerned so the person sees it. Changes are not saved until the tree is saved; call save_tree only when asked.");
@@ -687,6 +696,8 @@ public sealed class AssistantSession
         // Research (TDD 25.5): where to look, whom to search for, and how to record what is found.
         builder.AppendLine("Research:");
         builder.AppendLine("- Before searching for records, call suggest_resources for the place and kind of record, then search with a connected MCP server or fetch_url (api_notes says how each archive is called). Tell the person which useful sites have no API, so they can search them by hand.");
+        // From the same test: asked to find a death date and a spouse, it asked whether it might search first.
+        builder.AppendLine("- A request to find something about a person who has died is the go-ahead to search for it: don't ask first. fetch_url asks the person itself before reading a site that isn't listed.");
         builder.AppendLine("- Search records only for people who have died. Never put a living person's name, or anything about them, into a search, a web address or another service.");
         // From a test with a real model (11 November 2026): it offered to search Ancestry and Findmypast, which it can't
         // reach, and fetched FreeBMD's search form four times.

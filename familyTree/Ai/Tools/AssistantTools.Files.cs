@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Mycelia.Ai.Assistant;
 using Mycelia.Model;
+using Mycelia.Ui;
 using Mycelia.Ui.Charts;
 
 namespace Mycelia.Ai.Tools;
@@ -51,7 +52,55 @@ public sealed partial class AssistantTools
                 _host.ShowChart(kind, generations);
                 return new JsonObject { ["showing"] = kind.ToString(), ["person"] = RefOrNull(_state.Selected) };
             }, "Shown"),
+
+        Read("read_help", "Read the help",
+            "Reads Mycelia's help pages: how the program's screens, panels, buttons and menus work, and where things are shown. Use it before telling the person how to do or find something in the program. With a question, gives the best-matching sections; with a page and no question, lists that page's sections; with neither, lists the pages and their sections.",
+            Schema.Object(
+                ("question", Schema.String("What to look up, in a few words (\"where are a fact's citations\", \"add a baptism\")."), false),
+                ("page", Schema.String("Only this page.", HelpPages.PageNames.ToArray()), false),
+                ("section", Schema.String("With page: the heading of one section to read whole."), false)),
+            ReadHelp, "Read"),
     ];
+
+    private const int HelpResults = 3, HelpSectionChars = 6000;
+
+    private static JsonNode ReadHelp(JsonObject args)
+    {
+        var page = args.Str("page");
+        if (page is not null && !HelpPages.PageNames.Contains(page, StringComparer.OrdinalIgnoreCase))
+            throw new ArgumentException($"There is no help page {page}: read_help without a page lists them.");
+        static JsonObject Whole(HelpSection s) => new()
+        {
+            ["page"] = s.Page, ["section"] = s.Heading, ["address"] = s.Address,
+            ["text"] = s.Text.Length > HelpSectionChars ? s.Text[..HelpSectionChars] + "..." : s.Text,
+        };
+        if (page is not null && args.Str("section") is { } heading)
+        {
+            var found = HelpPages.All.FirstOrDefault(s => s.Page.Equals(page, StringComparison.OrdinalIgnoreCase)
+                                                          && s.Heading.Equals(heading.Trim(), StringComparison.OrdinalIgnoreCase))
+                        ?? throw new ArgumentException($"{page} has no section \"{heading}\": read_help with only the page lists them.");
+            return Whole(found);
+        }
+        if (args.Str("question") is { } question)
+        {
+            var hits = HelpPages.Search(question, page, HelpResults);
+            return new JsonObject
+            {
+                ["sections"] = new JsonArray(hits.Select(s => (JsonNode)Whole(s)).ToArray()),
+                ["note"] = hits.Count == 0 ? "Nothing in the help matches. Say the help doesn't cover it rather than guessing how the program looks." : null,
+            };
+        }
+        return new JsonObject
+        {
+            ["pages"] = new JsonArray(HelpPages.All.Where(s => page is null || s.Page.Equals(page, StringComparison.OrdinalIgnoreCase))
+                .GroupBy(s => s.Page)
+                .Select(g => (JsonNode)new JsonObject
+                {
+                    ["page"] = g.Key,
+                    ["sections"] = new JsonArray(g.Select(s => (JsonNode)s.Heading).ToArray()),
+                }).ToArray()),
+        };
+    }
 
     private IEnumerable<AssistantTool> FileTools() =>
     [

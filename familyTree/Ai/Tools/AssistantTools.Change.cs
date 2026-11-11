@@ -33,9 +33,11 @@ public sealed partial class AssistantTools
                 ("death_place", Schema.String("Death place."), false),
                 ("relation", Schema.String("How the new person is related to relative_id: parent (the new person is their parent), child, spouse or sibling.", Relations), false),
                 ("relative_id", Schema.String("The person already in the tree the new person is related to."), false),
-                ("family_id", Schema.String("For a child: which of the relative's families (couples) the child belongs to; the first if left out."), false)),
+                ("family_id", Schema.String("For a child: which of the relative's families (couples) the child belongs to; the first if left out."), false),
+                ("another_partner", Schema.Boolean(AnotherPartnerHelp), false)),
             AddPerson,
-            args => $"Add {Quoted(PersonNameFrom(args))}" + (args.Str("relation") is { } r && args.Str("relative_id") is not null ? $" as the {r} of {NameOf(args, "relative_id")}." : " to the tree.")),
+            args => $"Add {Quoted(PersonNameFrom(args))}" + (args.Str("relation") is { } r && args.Str("relative_id") is not null ? $" as the {r} of {NameOf(args, "relative_id")}." : " to the tree.")
+                    + (args.Str("relation") == "spouse" ? UnnamedPartnerNote(args, Doc.GetPerson(args.Str("relative_id"))) : "")),
 
         Write("update_person", "Change a person",
             "Changes a person's names, sex, notes or Private mark. Only the fields given change.",
@@ -146,16 +148,16 @@ public sealed partial class AssistantTools
             args => $"Delete {FactLabel(args.Str("fact_id"))}."),
 
         Write("add_citation", "Cite a source",
-            "Cites a source for a fact: where in the source (page, entry, reference), the record's own web address and when it was looked at, and a transcription or extract of what it says. Name an existing source by id, or give a title: a source with that exact title is used, or a new one is made.",
+            "Cites a source for a fact: where in the source (page, entry, reference), the record's own web address and when it was looked at, and a transcription or extract of what it says. Name an existing source by id, or give a title: a source with that exact title is used, or a new one is made. Cite the fact for the event the record is of: a baptism entry goes on a Baptism fact, not on the Birth.",
             Schema.Object(
-                ("fact_id", Schema.String("The fact the source supports."), true),
+                ("fact_id", Schema.String("The fact the source supports: the one for the event the record is of."), true),
                 ("source_id", Schema.String("An existing source's id."), false),
                 ("source_title", Schema.String("Or a source title (found or created)."), false),
                 ("source_url", Schema.String("For a new source: its web address (the database or catalogue)."), false),
                 ("detail", Schema.String("Where in the source: page, folio, entry or reference."), false),
                 ("url", Schema.String("The record's own web address."), false),
-                ("accessed", Schema.String("When the web address was looked at (a date such as 11 Nov 2026)."), false),
-                ("text", Schema.String("A transcription or extract of what the record says."), false)),
+                ("accessed", Schema.String("The date the record was looked at, such as 11 Nov 2026."), false),
+                ("text", Schema.String("A transcription or extract of what the record itself says, with no label; never the citation."), false)),
             AddCitation,
             args =>
             {
@@ -304,7 +306,8 @@ public sealed partial class AssistantTools
             Schema.Object(
                 ("person_id", Schema.String("One partner."), true),
                 ("spouse_id", Schema.String("The other partner."), true),
-                ("couple_type", Schema.String("Spouse (default), Partner, Friend, Single, Other or Unknown.", EnumNames<CoupleType>()), false)),
+                ("couple_type", Schema.String("Spouse (default), Partner, Friend, Single, Other or Unknown.", EnumNames<CoupleType>()), false),
+                ("another_partner", Schema.Boolean(AnotherPartnerHelp), false)),
             args =>
             {
                 var a = PersonArg(args);
@@ -312,12 +315,19 @@ public sealed partial class AssistantTools
                 if (a == b) throw new ArgumentException("A person can't be their own spouse.");
                 if (Doc.SpouseFamilies(a).FirstOrDefault(f => f.HasPartner(b.Id)) is { } existing)
                     throw new ArgumentException($"They are already a couple (family {existing.Id}).");
+                if (!args.Bool("another_partner", false))
+                {
+                    CheckNoUnnamedPartner(a, b);
+                    CheckNoUnnamedPartner(b, a);
+                }
                 var type = EnumArg(args, "couple_type", CoupleType.Spouse);
                 Family? made = null;
                 Change(() => { made = Doc.AddFamily(a, b); made.Type = type; return ""; });
                 return $"{a.DisplayName} and {b.DisplayName} are now a couple (family {made!.Id}).";
             },
-            args => $"Make {NameOf(args)} and {NameOf(args, "spouse_id")} a couple."),
+            args => $"Make {NameOf(args)} and {NameOf(args, "spouse_id")} a couple."
+                    + UnnamedPartnerNote(args, Doc.GetPerson(args.Str("person_id")), Doc.GetPerson(args.Str("spouse_id")))
+                    + UnnamedPartnerNote(args, Doc.GetPerson(args.Str("spouse_id")), Doc.GetPerson(args.Str("person_id")))),
 
         Write("link_child", "Link a child",
             "Makes someone already in the tree a child of a person, in one of their families (couples); the first family, or a new single-parent family, when none is named.",
@@ -540,6 +550,7 @@ public sealed partial class AssistantTools
         {
             if (!Relations.Contains(relation)) throw new ArgumentException("relation must be parent, child, spouse or sibling.");
             relative = PersonArg(args, "relative_id");
+            if (relation == "spouse" && !args.Bool("another_partner", false)) CheckNoUnnamedPartner(relative);
             if (args.Str("family_id") is not null)
             {
                 family = FamilyArg(args);
@@ -590,6 +601,48 @@ public sealed partial class AssistantTools
         return text + ".";
     }
 
+    // ---- partners with no name ----
+    // From a test with a real model (11 November 2026): told the name of a man's wife, recorded as "?" and the mother
+    // of his son, it added her as a second partner instead of naming the record, so the son kept "?" as his mother.
+
+    private const string AnotherPartnerHelp = "true only when the new partner is someone other than a partner of theirs already in the tree with no name. Without it the call is refused when there is one: name that record with update_person instead.";
+
+    /// <summary>No given name or surname, or only "?" or "Unknown": a placeholder for someone not yet identified.</summary>
+    private static bool IsUnnamed(Person p)
+    {
+        static bool Blank(string s) => s.Trim() is "" or "?" || s.Trim().Equals("Unknown", StringComparison.OrdinalIgnoreCase);
+        return Blank(p.Given) && Blank(p.Surname);
+    }
+
+    /// <summary>The first partner of <paramref name="p"/> with no name, other than <paramref name="except"/>, and their family.</summary>
+    private (Person Partner, Family Family)? UnnamedPartner(Person p, Person? except = null)
+    {
+        foreach (var f in Doc.SpouseFamilies(p))
+            if (Doc.GetPerson(f.OtherPartner(p.Id)) is { } other && other != except && IsUnnamed(other))
+                return (other, f);
+        return null;
+    }
+
+    /// <summary>Refuses, before any change, a new partner for someone who already has a partner with no name.</summary>
+    private void CheckNoUnnamedPartner(Person p, Person? except = null)
+    {
+        if (UnnamedPartner(p, except) is not { } found) return;
+        var (partner, family) = found;
+        var children = family.Children.Count switch { 0 => "", 1 => ", with 1 child", var n => $", with {n} children" };
+        throw new ArgumentException(
+            $"{p.DisplayName} already has a partner with no name ({partner.Id}, in family {family.Id}{children}).  If this is that partner, "
+            + "name that record with update_person, or merge_people a record already added into it, so the family and its children keep them.  "
+            + "If it is someone else, call again with another_partner: true.  Nothing was changed.");
+    }
+
+    /// <summary>
+    /// The approval card's warning when the model says the new partner is someone else (another_partner); without it the
+    /// call is refused anyway, so the card says nothing.
+    /// </summary>
+    private string UnnamedPartnerNote(JsonObject args, Person? p, Person? except = null) =>
+        args.Bool("another_partner", false) && p is not null && UnnamedPartner(p, except) is not null
+            ? $"  {p.DisplayName} already has a partner with no name." : "";
+
     private string UpdatePerson(JsonObject args)
     {
         var p = PersonArg(args);
@@ -620,10 +673,14 @@ public sealed partial class AssistantTools
     private string OwnerNameOf(string? id) =>
         Doc.GetPerson(id)?.DisplayName ?? (Doc.GetFamily(id) is { } f ? Doc.CoupleName(f) : id ?? "someone");
 
+    /// <summary>
+    /// A fact for an approval card, with its date as typed ("the Birth (Abt. 1801) of Hannah Sutcliffe"), so a citation put on
+    /// the wrong fact can be seen before it is approved.
+    /// </summary>
     private string FactLabel(string? factId)
     {
         foreach (var (owner, f) in Doc.AllFacts())
-            if (f.Id == factId) return $"the {f.Type.Name} of {Doc.OwnerName(owner)}";
+            if (f.Id == factId) return $"the {f.Type.Name}{(f.Date.Trim().Length > 0 ? $" ({f.Date.Trim()})" : "")} of {Doc.OwnerName(owner)}";
         return "a fact";
     }
 
@@ -692,6 +749,9 @@ public sealed partial class AssistantTools
         foreach (var key in new[] { "url", "source_url" })
             if (args.Str(key) is { } address && !Ui.Dialogs.IsWebAddress(address))
                 throw new ArgumentException($"{key} must be a web address starting with https:// or http://.");
+        // The fact form shows accessed in the person's date style, so it must be a date the program reads.
+        if (args.Str("accessed") is { } accessed && !GenDate.Parse(accessed).IsValid)
+            throw new ArgumentException($"The program can't read \"{accessed}\" as a date.  Give accessed as a date such as 11 Nov 2026, or leave it out.");
         if (source is not null && fact.Citations.Any(c => c.SourceId == source.Id && c.Detail == detail && c.Url == url))
             return $"The {fact.Type.Name} already cites \"{source}\" with that detail; nothing was changed.";
         var created = source is null;

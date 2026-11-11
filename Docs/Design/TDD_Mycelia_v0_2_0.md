@@ -1213,8 +1213,12 @@ program reads, checked with `parse_date`; places most local part first; cite eve
 record with `add_citation`, and never record an inference as a recorded fact; partner 1 is the man
 where known; never guess or search for a withheld living person's details; say what changed in a
 short list and select the person concerned; save only when asked; read before changing, and
-search before adding a person); the current context as JSON; the connected servers; and the
-person's own instructions.
+search before adding a person; cite a record on the fact for the event it records, adding that
+fact when it is missing; split a citation the person gives into `add_citation`'s fields and add
+nothing it doesn't say; name a parent or partner recorded with no name rather than adding a
+second person for them; answer questions about the program from `read_help` and never describe a
+screen the help doesn't mention); the research rules (section 25.5); the current context as JSON;
+the connected servers; and the person's own instructions.
 
 **Changes made by a request.**  `IAssistantHost.BeginRequest` and `EndRequest` frame each
 request.  When the request changed the tree, the pane ends it with a line: "4 changes to the tree.
@@ -1223,7 +1227,7 @@ saved conversation, but a restored one can no longer revert.
 
 ### 22.3 Built-in tools (`Ai/Tools/AssistantTools*.cs`)
 
-63 tools in five partial files: `AssistantTools.cs` (the context, what the model may see, lookups,
+64 tools in five partial files: `AssistantTools.cs` (the context, what the model may see, lookups,
 the change helper and Revert), `.Read.cs`, `.Change.cs`, `.Files.cs` (moving around and files) and
 `.Research.cs` (section 25).
 `MainWindow` implements `IToolHost` for what they need from the window: the settings, the workspace
@@ -1248,15 +1252,20 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   `parse_date`; `date_calculator` (age between, birth from age with "Cal." to record, event from
   age, as Tools' calculator); `soundex`.
 - **Moving around:** `select_person` (selects and centres, optionally opening the Person view),
-  `show_workspace`, `show_chart` (kind, person, generations).
+  `show_workspace`, `show_chart` (kind, person, generations), `read_help` (the help pages built
+  into the program, section 28: with a question, the three best-matching sections, each with its
+  address on GitHub; with a page, its section headings or one section whole; with neither, every
+  page and its headings).
 - **Changing (Ask by default):** `add_person` (with birth and death, and optionally as the parent,
   child, spouse or sibling of someone, as the person editor's Add buttons do: a spouse joins an open
-  single-parent family first), `update_person`, `delete_person`, `merge_people`, `set_home_person`,
+  single-parent family first; a spouse for someone who already has a partner with no name is
+  refused, see below), `update_person`, `delete_person`, `merge_people`, `set_home_person`,
   `set_bookmark` (not an undo step, as bookmarks never are), `add_fact` (to a person or a family;
   the type by name, GEDCOM tag or id, with a suggestion for a near miss; the place found or made by
   name; a date the program can't read is kept and reported), `update_fact`, `delete_fact` (the next
   of its type becomes preferred), `add_citation` (an existing source, or one found or made by
-  title and web address; the record's web address, accessed date and extract, section 25),
+  title and web address; the record's web address, accessed date and extract, section 25; an
+  accessed date the program can't read is refused before anything changes),
   `remove_citation`, `add_source`, `update_source`, `add_repository`, `update_place`
   (coordinates checked as decimal degrees), `combine_places` (as the Places view's Combine),
   `link_parent`, `link_spouse`, `link_child` (each with how the child is related), `unlink` (a
@@ -1274,7 +1283,17 @@ replaces every object (section 8); an unknown id is answered with which tool lis
 **One undo step each.**  Each change tool looks everything up and checks it first, so a refused call
 changes nothing and leaves no empty undo step; then it runs its change through `TreeDocument.Change`.
 Each change tool has a `Describe` sentence for its approval card ("Add a Baptism fact to Arthur
-Ashworth: date 1 Sep 1884, place Leeds.").
+Ashworth: date 1 Sep 1884, place Leeds.").  A fact already in the tree is named with its date as
+typed (`FactLabel`: "the Birth (Abt. 1801) of Hannah Sutcliffe"), so a citation or change aimed at
+the wrong fact can be seen before it is approved.
+
+**Partners with no name.**  A person whose given name and surname are each empty, "?" or "Unknown"
+(`IsUnnamed`) stands for someone not yet identified.  `add_person` as a spouse, and `link_spouse`
+(for either partner), refuse before changing anything when the person already has such a partner,
+saying the record's id, its family and how many children it has, and to name it with
+`update_person` or `merge_people` a record already added into it.  A new partner who is someone
+else is added with `another_partner: true`, and the approval card then says "… already has a
+partner with no name."  Without it the card says nothing, since the call will be refused.
 
 **Revert this request.**  At a request's first change the tools copy the tree (`Serialize`); at its
 end `EndRequest` gives the count and a revert.  Revert restores the copy through
@@ -1855,6 +1874,28 @@ Findmypast, fetched FreeBMD's search form four times and filled its replies with
   after a second test, in which the model wrote "please advise if want me to search..." into a
   person's notes.
 
+Added the same day after a third test, in which the model asked whether it might search when asked
+to find a death date, cited a parish register entry of 1842 on a Birth of "Abt. 1841", filled the
+citation's detail and extract with words the person's citation didn't contain, put the citation's
+own timestamp in the accessed date, and, asked where the citation was, described panels and icons
+the program doesn't have:
+
+- A request to find something about a person who has died is the go-ahead to search; `fetch_url`
+  asks the person itself before reading a site that isn't listed.
+- A record is cited on the fact for the event it records (a baptism entry on a Baptism fact, not the
+  Birth); a missing fact for that event is added, and an unclear event is asked about.  The same is
+  said in `add_citation`'s description.
+- A citation the person gives is split into `add_citation`'s fields with nothing added; `text` holds
+  only words quoted from the record, and `accessed` only the date the record was looked at.
+  `add_citation` refuses an accessed date `GenDate` can't read.
+- Questions about the program are answered from `read_help` (section 28), naming only the panels,
+  buttons and menus it names.
+- Approval cards name a fact with its date (section 22.3).
+- A parent or partner recorded with no name ("?") is named when the model learns who they are,
+  never added again as a second person.  Added after the same test, in which the model, told the
+  name of a wife recorded as "?", added her as a second partner, so her son kept "?" as his mother.
+  `add_person` and `link_spouse` refuse such a partner unless told it is someone else (section 22.3).
+
 ---
 
 ## 26. The Name: Family Tree to Mycelia
@@ -1987,6 +2028,14 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
   section headings (The Person view, General, Dates and names, Warnings, Updates, Choosing an AI
   model, What the AI model sees, Built-in tools, Activity log, The MCP Helper, Adding a server by
   hand, Research settings); renaming one breaks its link.
+- **To the Assistant** (`Ui/HelpPages.cs`): every page is built into the program as an embedded
+  resource (`Mycelia.Help.<page>`, the csproj links `Docs/Help/*.md`), split into sections at its
+  `##` and `###` headings, with pictures left out and links to other pages made into full GitHub
+  addresses.  `read_help` (section 22.3) searches them: each word of the question is cut to a stem
+  and matched against the start of words, a heading match counts six and each match in the text
+  one (at most four a word), and the total is multiplied by how many of the question's words the
+  section holds.  Changing the help means building again for the Assistant to see it; F1 still
+  opens the pages on GitHub.
 
 ---
 
@@ -1994,6 +2043,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3). |
 | 11 November 2026 | 0.2.0 | Moving the pedigree up and down (15.2): the end cards' arrow is a button, a down button lists the focus person's children, and a double-click on the tree centres it without opening the Person view. |
 | 11 November 2026 | 0.2.0 | The right-click menu for a person (15.2, `PersonMenu`, 3) on the tree, the family strip and the index; Make home person in Main menu > Person (14). |
 | 11 November 2026 | 0.2.0 | Releases on GitHub (20): step 6 of releasing a version, the same signed installer as the updater's, built and signed on the publisher's computer. |

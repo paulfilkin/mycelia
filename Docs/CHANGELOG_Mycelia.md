@@ -3,6 +3,34 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
+## Unreleased
+
+### New
+
+- **The Assistant answers questions about Mycelia from its help.**  Ask "Where do I see a fact's
+  citations?" and it reads the help pages, now built into the program, and names the panels and
+  buttons they name.  Before, it could only guess, and described screens Mycelia doesn't have.
+  When the help doesn't cover something, it says so.
+
+### Changed
+
+- **Citations go on the right fact.**  The Assistant is told to cite a record on the fact for the
+  event it records: a baptism entry on a Baptism fact, not on the Birth.  When there is no fact for
+  that event, it adds one and cites it there; when it can't tell what event a record is of, it asks.
+- **A citation you give is carried over as it is.**  Its parts go into the source, the record's web
+  address and the date accessed, with nothing added, and the extract holds only words quoted from
+  the record.  A date accessed that Mycelia can't read, such as a website's timestamp, is refused
+  and the Assistant writes it again as a date.
+- **Approval cards give a fact's date**, such as "Cite … for the Birth (Abt. 1801) of Hannah
+  Sutcliffe", so you can see which fact a citation or change is for before you allow it.
+- **A partner with no name is named, not added again.**  When a husband or wife is recorded as "?"
+  and you tell the Assistant who they are, it names that record, so the children stay with them.
+  Before, it could add the named person as a second partner, leaving the children with "?".  It
+  adds another partner beside one with no name only when the new partner is someone else, and the
+  approval card then says so.
+- **Asked to find something, the Assistant searches** without first asking whether it may.  Sites
+  that aren't on its list still ask before they are read.
+
 ## 0.2.0 - 11 November 2026
 
 The Assistant, built in steps: the conversation and the connection to MCP servers, then the tools

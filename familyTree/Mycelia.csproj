@@ -35,6 +35,8 @@
   <ItemGroup>
     <!-- The genealogy resources list, read as it is by the Assistant's suggest_resources (TDD 25.3). -->
     <EmbeddedResource Include="..\Docs\Resources\genealogy-resources.md" LogicalName="Mycelia.genealogy-resources.md" Link="Resources\genealogy-resources.md" />
+    <!-- The help pages, read by the Assistant's read_help (TDD 22.3, 28); F1 still opens them on GitHub. -->
+    <EmbeddedResource Include="..\Docs\Help\*.md" LogicalName="Mycelia.Help.%(Filename)%(Extension)" Link="Help\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

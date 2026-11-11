@@ -59,6 +59,10 @@ Your message appears on the right, with where you were when you asked underneath
 
 You can ask it to find people, explain relationships, check for data errors, show a chart, or make changes such as "Add a baptism for Arthur Ashworth on 1 Sep 1884 at Leeds."
 
+When a parent or partner is recorded with no name (shown as "?") and you tell the Assistant who they are, it names that record, so their family and children keep them.  It won't add another partner for someone who already has a partner with no name unless the new partner is someone else, and then the approval card says "already has a partner with no name", so you can decline.
+
+You can also ask how to do something in Mycelia, such as "Where do I see a fact's citations?".  These help pages are built into the program, and the Assistant answers from them, naming the panels and buttons they name.  When the help doesn't cover something, it says so rather than guessing.
+
 ### Your own instructions
 
 Options > Assistant has a box, **Your instructions**, whose text is added to every conversation.  For example: "My research is on the Ashworth family of Hebden Bridge.  Cite every record you find."
@@ -79,7 +83,7 @@ If an answer is cut short because it is longer than the **Longest answer** setti
 
 ## Approvals
 
-Tools that change the tree, write files or read web addresses ask first, and so do MCP servers' tools unless you choose otherwise.  The pane shows an amber card headed **Allow this?**, with a sentence saying what will happen (for example "Add a Baptism fact to Arthur Ashworth: date 1 Sep 1884, place Leeds."), the tool and its source.  **Show details** shows the arguments.
+Tools that change the tree, write files or read web addresses ask first, and so do MCP servers' tools unless you choose otherwise.  The pane shows an amber card headed **Allow this?**, with a sentence saying what will happen (for example "Add a Baptism fact to Arthur Ashworth: date 1 Sep 1884, place Leeds."), the tool and its source.  **Show details** shows the arguments.  A card about a fact already in the tree gives the fact's date, such as "the Birth (Abt. 1801) of Hannah Sutcliffe", so you can see which fact a citation or change is for.
 
 - **Allow** runs it this once.
 - **Always allow** runs it, and lets this tool run without asking from now on.  You can change that again under [Built-in tools](#built-in-tools), or for an MCP server's tool in Options > MCP servers.
@@ -178,6 +182,10 @@ See [Media](media.md) for working with media items.
 ### Citations
 
 The AI model is told to cite every record it uses, with the source, the detail, the record's web address, the date it was accessed and a short extract.  These appear under the fact like any other citation; see [Facts, dates and sources](facts-and-sources.md).  It is told never to invent a record or web address, and to treat a record about someone of the same name as a candidate until something links it to your person.
+
+- A record is cited on the fact for the event it records: a baptism entry on a Baptism fact, a burial entry on a Burial fact, not on the Birth or Death.  When the person has no fact for that event, the Assistant adds one and cites it there; when it can't tell what event a record is of, it asks.
+- When you give it a citation to add, it puts each part in its place (the source, the record's web address, the date accessed) and adds nothing your citation doesn't say.  The extract holds only words quoted from the record.
+- The date accessed must be a date Mycelia can read, such as "11 Nov 2026"; anything else is refused and the Assistant is asked to write it again.
 
 ## Built-in tools
 
