@@ -7,6 +7,13 @@ understand what changed without reading the diff.
 
 ### New
 
+- **Preferred parents.**  Someone with more than one set of parents, such as birth parents and
+  adoptive parents, can have one set chosen as preferred with Make preferred in the Family tab.
+  The tree, the charts, the family strip, the Person view and the data checks show those parents.
+  Before, whichever set was recorded first was always used, with no way to change it.  The
+  Assistant can see and set the choice.  It is kept when people are merged and when another tree
+  is merged in, and GEDCOM export writes the preferred parents first so they come back the same.
+
 - **The Assistant answers questions about Mycelia from its help.**  Ask "Where do I see a fact's
   citations?" and it reads the help pages, now built into the program, and names the panels and
   buttons they name.  Before, it could only guess, and described screens Mycelia doesn't have.

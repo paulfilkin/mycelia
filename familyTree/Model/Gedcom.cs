@@ -182,6 +182,19 @@ public static class Gedcom
             }
         }
 
+        // Preferred parents: for someone listed as a child in two or more families, the first FAMC line under them (as
+        // export writes it).  GEDCOM 5.5.1 gives the order no meaning, so other programs' files may not follow it.
+        var famRoots = roots.Where(r => r.Tag == "FAM").ToList();
+        foreach (var i in roots.Where(r => r.Tag == "INDI" && r.XRef is not null))
+        {
+            if (!personMap.TryGetValue(i.XRef!, out var person)) continue;
+            var parentFamilies = data.Families.Where(f => f.Children.Any(c => c.PersonId == person.Id)).ToList();
+            if (parentFamilies.Count < 2 || i.Children.FirstOrDefault(c => c.Tag == "FAMC") is not { } first) continue;
+            var idx = famRoots.FindIndex(r => r.XRef == first.Value);
+            if (idx >= 0 && idx < data.Families.Count && parentFamilies.Contains(data.Families[idx]))
+                person.PreferredParentsId = data.Families[idx].Id;
+        }
+
         data.HomePersonId = data.People.FirstOrDefault()?.Id;
         return data;
     }
@@ -469,7 +482,8 @@ public static class Gedcom
                 }
                 WriteFact(f, 1);
             }
-            foreach (var fam in families.Where(f => f.Children.Any(c => c.PersonId == p.Id)))
+            // The preferred parents' FAMC first; import takes the first FAMC as preferred.
+            foreach (var fam in families.Where(f => f.Children.Any(c => c.PersonId == p.Id)).OrderBy(f => f.Id == p.PreferredParentsId ? 0 : 1))
             {
                 Line(1, "FAMC", familyRef[fam.Id]);
                 var link = fam.Children.First(c => c.PersonId == p.Id);

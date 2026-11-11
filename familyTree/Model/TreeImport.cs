@@ -107,6 +107,7 @@ public static class TreeImport
             RemapTypes(p.Facts);
             p.PhotoMediaId = p.PhotoMediaId is null ? null : mediaIds.GetValueOrDefault(p.PhotoMediaId);
             p.SpouseOrder = p.SpouseOrder.Select(id => familyIds.GetValueOrDefault(id)).OfType<string>().ToList();
+            p.PreferredParentsId = p.PreferredParentsId is null ? null : familyIds.GetValueOrDefault(p.PreferredParentsId);
             data.People.Add(p);
         }
         foreach (var f in other.Families)

@@ -125,7 +125,7 @@ Both dates must be real calendar dates (not text, not ranges) with years.  They 
 - Birth date missing; marriage date missing when the preferred couple is of type Spouse.
 - Children of the preferred couple not in birth order.
 - Sex unknown; person with no spouse, parents or children.
-- The first family counts as the preferred one, so there is no "preferred spouse or parents not set" check.
+- Preferred parents are chosen with Make preferred in the Family tab; until they are, the first family listing the person as a child counts, so there is no "preferred spouse or parents not set" check.
 
 ## Index sorting
 
@@ -173,8 +173,9 @@ Steps, in order:
 3. A death-related fact (types 20 Cremation, 13 Burial, 31 Funeral, 57 Cause of Death): not living,
    and relatives are not asked.
 4. Living by themselves needs a birth date.
-5. Otherwise living when the preferred spouse, or either preferred parent, is living by the same
-   steps without asking their own relatives.
+5. Otherwise living when the preferred spouse, or any parent in any of their parent families, is
+   living by the same steps without asking their own relatives.  Every parent counts, not only the
+   preferred ones, so that more people are treated as living rather than fewer.
 
 The rule decides who is privatised on export (given name "Living", surname and sex kept, nothing
 else) and how much the Assistant's AI model is told about a person.

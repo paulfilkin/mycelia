@@ -73,8 +73,13 @@ public sealed class TreeDocument
 
     // ---- family queries ----
 
-    public IEnumerable<Family> ParentFamilies(Person p) =>
-        Data.Families.Where(f => f.Children.Any(c => c.PersonId == p.Id));
+    /// <summary>The families listing this person as a child, the preferred parents first, the rest in stored order.</summary>
+    public IEnumerable<Family> ParentFamilies(Person p)
+    {
+        var families = Data.Families.Where(f => f.Children.Any(c => c.PersonId == p.Id)).ToList();
+        if (p.PreferredParentsId is null || families.Count < 2) return families;
+        return families.OrderBy(f => f.Id == p.PreferredParentsId ? 0 : 1);
+    }
 
     public Family? ParentFamily(Person p) => ParentFamilies(p).FirstOrDefault();
 
@@ -359,6 +364,7 @@ public sealed class TreeDocument
             var link = f.Children.First(c => c.PersonId == child.Id);
             var toOther = f.Partner1Id == other.Id ? link.Nature1 : link.Nature2;
             f.Children.Remove(link);
+            if (child.PreferredParentsId == f.Id) child.PreferredParentsId = couple.Id;
             couple.Children.Add(new ChildLink
             {
                 PersonId = child.Id,
@@ -395,6 +401,7 @@ public sealed class TreeDocument
     public void DetachChild(Family f, Person child)
     {
         f.Children.RemoveAll(c => c.PersonId == child.Id);
+        if (child.PreferredParentsId == f.Id) child.PreferredParentsId = null;
         RemoveIfEmpty(f);
     }
 

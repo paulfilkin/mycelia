@@ -125,6 +125,13 @@ public sealed class Person : Observable
     /// </summary>
     public List<string> SpouseOrder { get; set; } = [];
 
+    /// <summary>
+    /// The id of the parent family chosen as this person's preferred parents (Make preferred in the Family tab); the
+    /// pedigree, charts and Father and Mother follow it.  Null, or an id that is no longer one of their parent families,
+    /// means the first family listing them counts (TDD 5, Design considerations, Person checks).
+    /// </summary>
+    public string? PreferredParentsId { get; set; }
+
     /// <summary>Show surnames in capitals wherever names are displayed (Design considerations, Names).</summary>
     public static bool SurnamesInCapitals { get; set; }
 

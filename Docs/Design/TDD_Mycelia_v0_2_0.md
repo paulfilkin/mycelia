@@ -183,7 +183,7 @@ repository, `S` source, `M` media, `H` historical event.
 
 | Entity | Fields |
 | --- | --- |
-| `Person` | Given, Surname, Suffix, Sex (Male, Female, Unknown), Notes, PhotoMediaId, Private, Facts, SpouseOrder (family ids, the first preferred; empty means none set) |
+| `Person` | Given, Surname, Suffix, Sex (Male, Female, Unknown), Notes, PhotoMediaId, Private, Facts, SpouseOrder (family ids, the first preferred; empty means none set), PreferredParentsId (the parent family chosen as preferred; null means none chosen) |
 | `Fact` | TypeId, Date (text as typed), PlaceId, Description, Preferred (default true), Private, Note, Citations |
 | `Citation` | SourceId, Detail (page, folio, entry), Url (the record's web address), Accessed (date as typed), Text (an extract of the record) |
 | `Family` | Partner1Id, Partner2Id, Type (`CoupleType`), Status (`CoupleStatus`), Notes, Facts, Children |
@@ -209,7 +209,10 @@ when there is a death fact without a year, or empty.  `Place.ShortName` is the p
 first comma.  `MediaItem.IsImage` is decided by extension (jpg, jpeg, png, bmp, gif, tif, tiff).
 
 A family is a couple, or one parent, and their children.  A person's parents are the partners of
-the first family that lists them as a child (`ParentFamily`); `Father` and `Mother` are chosen by
+their preferred parent family (`ParentFamily`): the one named by `PreferredParentsId`, or, when
+none is chosen or the id is no longer one of their parent families, the first family that lists
+them as a child.  `ParentFamilies` lists the preferred one first, so the pedigree, charts, family
+strip, Person view, data checks and the Assistant all follow it.  `Father` and `Mother` are chosen by
 sex, falling back to slot 1 and slot 2 when sexes are unknown (`PartnerBySex`).  Partner 1 is the
 man where known: `AddFamily` swaps a pair so the woman is partner 2, matching GEDCOM `HUSB` and
 `WIFE`.
@@ -247,7 +250,8 @@ enumerations as their names, null properties omitted.  Derived properties are `[
 `TreeDocument.Save` writes `<path>.tmp` and moves it over the target, then clears the dirty flag;
 there is no backup copy.  `TreeDocument.Load` reads a file and keeps its path; a file that
 deserialises to nothing becomes an empty tree.  `FormatVersion` is 1 and is not yet checked on
-load.
+load.  Fields added later are left out while empty (`PreferredParentsId`), so a tree that doesn't
+use them is written as before, and an older copy of the program reads a newer file, ignoring them.
 
 The document's title is the file name without extension, or the tree's name when unsaved.
 `Created` and `Modified` are local times; `Modified` is set on every change and on save.
@@ -262,7 +266,8 @@ repositories and media, rebuilt after every change (`RebuildIndex`; duplicate id
 
 Family queries: `ParentFamilies`, `ParentFamily`, `SpouseFamilies`, `Father`, `Mother`,
 `Parents`, `Spouses`, `Children(family)`, `Children(person)` (across all their families, distinct),
-`Siblings` (other children of the parent families), `PeopleAtPlace`,
+`Siblings` (other children of the parent families), `PeopleAtPlace`, `ParentFamilies` with the
+preferred parents first (section 5),
 `SpouseFamilies` in the person's `SpouseOrder` (families not listed follow in file order), `AllFacts()` (every person
 and couple fact with its owner), `OwnerName`, `CoupleName` ("A & B", one name, or "Unknown
 couple").
@@ -289,13 +294,14 @@ Edits are building blocks meant to be called inside `Change` (section 8):
     When the child's parent family has a partner missing and the parent already in it is the new
     parent's partner in another family, the child moves into that couple's family, keeping how
     they are related to the parent already linked (to the new parent, Natural); brothers and sisters
-    stay, since they may have another parent.  Otherwise it fills partner 1 (unless the parent is a
+    stay, since they may have another parent.  A preference for the family left moves to the
+    couple's.  Otherwise it fills partner 1 (unless the parent is a
     woman and slot 2 is free), then partner 2, else makes a second family for the child with this
     parent.
   - `DetachChild` and `DetachPartner` remove one link, then `RemoveIfEmpty` drops the family when
     it has no children and either no partners or one partner and no facts, as `RemovePerson`
     does; otherwise it stayed as an Unknown spouse card the person panel can't remove.  A family
-    keeping a marriage stays.
+    keeping a marriage stays.  `DetachChild` clears the child's preference for that family.
 - `RemovePerson` clears the person from partner slots, child links and media links, removes
   families that are now empty, or one-partner families with no children and no facts, and moves
   the home person to the first person when needed.
@@ -323,7 +329,10 @@ chosen again and Swap exchanges them.  Opened from the main menu, the person pan
 - Media links, family partner slots and child links that named the merged record name the kept one.
   A family where the kept person would be both partners keeps one; duplicate child links and a
   partner listed as their own child are dropped.  Two families that now hold the same couple become
-  one (facts combined as above, children joined, notes joined).
+  one (facts combined as above, children joined, notes joined); children who preferred the family
+  combined away prefer the one kept.
+- Preferred parents: the kept record's, else the merged record's, cleared when it is not one of the
+  kept person's parent families after the merge.
 - The home person and the history follow; empty families are removed.
 
 **Duplicates** (`PersonMerge.FindDuplicates`): people grouped by Soundex of the surname; within a
@@ -342,7 +351,8 @@ each with a reason ("similar name, both born 1856, same birth place").
 
 **Merge another tree** (File > Import and export > Merge another tree into this one...).
 `TreeImport.Read` reads a `.ftree` or a GEDCOM file; `MergeInto(doc, other)`, inside one `Change`,
-adds everything in it under new ids.  Places are matched by name (`GetOrCreatePlace`),
+adds everything in it under new ids (a person's spouse order and preferred parents follow their
+families' new ids).  Places are matched by name (`GetOrCreatePlace`),
 repositories by name, sources by title and author, custom fact types by name and scope, media by
 file path and historical events by title and date; matched items are shared, not doubled.  People
 are never matched: the window then offers Find duplicate people (section 7.1), which is how the
@@ -526,7 +536,10 @@ tree dirty; the history is written with the next save.
   people and couples alike; the first fact of each type is preferred; OBJE links,
   the first image becoming the portrait); `FAM` (HUSB and WIFE into partners 1 and 2, CHIL with
   `_FREL` and `_MREL` natures, couple facts by tag, Divorced status when a divorce fact exists, NOTE);
-  then `PEDI` on a child's `FAMC` link sets both natures.  Shared notes (`@N1@`) are resolved.
+  then `PEDI` on a child's `FAMC` link sets both natures, and for someone listed as a child in two
+  or more families the first `FAMC` under them becomes their preferred parents (GEDCOM 5.5.1 gives
+  the order no meaning, so another program's file may not follow it).  Shared notes (`@N1@`) are
+  resolved.
 - **Facts:** DATE through `GenDate.FromGedcom` (`BET`/`AND` to "Bet. ... and", `EST` to "Abt.",
   `INT` dropped, bracketed text kept as typed, valid dates reformatted as DMY); PLAC creates or
   matches a place; the line value is the description unless it is "Y"; a tag's TYPE becomes the
@@ -537,8 +550,8 @@ tree dirty; the history is written with the next save.
 `Gedcom.Export(doc, path)` writes CRLF lines, UTF-8 without a byte-order mark: a HEAD (`SOUR
 MYCELIA`, `VERS 1.0`, today's date, `GEDC 5.5.1 LINEAGE-LINKED`, `CHAR UTF-8`, a submitter);
 each person as `INDI` with NAME (`Given /Surname/ Suffix`, GIVN, SURN, NSFX), SEX (M, F or U),
-facts in date order (Also Known As as a second NAME with `TYPE aka`), `FAMC` with `PEDI` for
-adopted, foster and sealing links where both natures agree, `FAMS`, `OBJE` links and NOTE; each
+facts in date order (Also Known As as a second NAME with `TYPE aka`), `FAMC` (the preferred
+parents first) with `PEDI` for adopted, foster and sealing links where both natures agree, `FAMS`, `OBJE` links and NOTE; each
 family as `FAM` with HUSB, WIFE, CHIL (with `_FREL` and `_MREL` when either nature is not
 natural), facts and NOTE; `SOUR` records (TITL, AUTH, PUBL joining publisher, location and date,
 REPO with CALN, WWW, NOTE); `REPO` records; `OBJE` records (FILE, FORM from the extension, TITL,
@@ -798,8 +811,9 @@ person...") and a delete button.  Four tabs:
   section 25) and Delete fact.  Add fact offers the common types (birth, baptism,
   christening, death, burial, residence, occupation, census, education, military service,
   immigration, emigration, also known as) and the rest under More facts.
-- *Family:* the parents with a nature box each and a detach button; Add father, Add mother, Link
-  existing parent.  Each spouse family, in the person's spouse order when one is set, otherwise in
+- *Family:* the parents with a nature box each and a detach button; with two or more sets of
+  parents, the preferred set first, marked Preferred, and Make preferred on each other set (one
+  undo step, setting `PreferredParentsId`); Add father, Add mother, Link existing parent.  Each spouse family, in the person's spouse order when one is set, otherwise in
   marriage-date order, as a card: the spouse (or Unknown spouse with Add spouse and Link existing
   spouse, which fill that card's family, section 7),
   relationship type and status boxes, the couple facts with the same editor, the children in birth
@@ -1262,7 +1276,8 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   Soundex surname, sex, birth and death years, a place, living or not; 50 a page, at most 200, with
   `next_offset`); `get_person` (names, sex, notes, facts with their ids, the date as typed and as
   read, place, description, note, sources and flags, in `FactOrder`; parents with how the child is
-  related to each partner; spouse families with marriage and children; media; the relationship to
+  related to each partner, the preferred set first and marked `preferred` when there are two or
+  more; spouse families with marriage and children; media; the relationship to
   the home person; data warnings from `DataChecker`); `get_family`; `get_ancestors` (Ahnentafel
   numbers, 4 generations, at most 7); `get_descendants` (3 generations, at most 5); `get_relationship`
   (`Kinship` wording and path); `get_timeline` (`Timeline`, family and historical optional);
@@ -1280,7 +1295,8 @@ replaces every object (section 8); an unknown id is answered with which tool lis
 - **Changing (Ask by default):** `add_person` (with birth and death, and optionally as the parent,
   child, spouse or sibling of someone, as the person editor's Add buttons do: a spouse joins an open
   single-parent family first; a spouse for someone who already has a partner with no name is
-  refused, see below), `update_person`, `delete_person`, `merge_people`, `set_home_person`,
+  refused, see below), `update_person` (also `preferred_parents`, a family id checked as one of
+  the person's parent families), `delete_person`, `merge_people`, `set_home_person`,
   `set_bookmark` (not an undo step, as bookmarks never are), `add_fact` (to a person or a family;
   the type by name, GEDCOM tag or id, with a suggestion for a near miss; the place found or made by
   name; a date the program can't read is kept and reported), `update_fact`, `delete_fact` (the next
@@ -2071,7 +2087,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
-| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2).  Linking rules shared by the program and the Assistant (7): `LinkCouple`, `SetParent` moving a child into an existing couple, `RemoveIfEmpty` for `DetachPartner` too; the Unknown spouse card's buttons fill that card (15.2); `link_spouse` fills a family with a partner missing (22.3). |
+| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2).  Linking rules shared by the program and the Assistant (7): `LinkCouple`, `SetParent` moving a child into an existing couple, `RemoveIfEmpty` for `DetachPartner` too; the Unknown spouse card's buttons fill that card (15.2); `link_spouse` fills a family with a partner missing (22.3).  Preferred parents: `Person.PreferredParentsId` (5, 6), `ParentFamilies` lists them first (7), kept through detaching, moving and merging (7, 7.1, 7.2), the first `FAMC` in GEDCOM (11), Make preferred in the Family tab (15.2), `get_person` and `update_person` (22.3). |
 | 11 November 2026 | 0.2.0 | Moving the pedigree up and down (15.2): the end cards' arrow is a button, a down button lists the focus person's children, and a double-click on the tree centres it without opening the Person view. |
 | 11 November 2026 | 0.2.0 | The right-click menu for a person (15.2, `PersonMenu`, 3) on the tree, the family strip and the index; Make home person in Main menu > Person (14). |
 | 11 November 2026 | 0.2.0 | Releases on GitHub (20): step 6 of releasing a version, the same signed installer as the updater's, built and signed on the publisher's computer. |

@@ -238,7 +238,8 @@ public sealed partial class AssistantTools
 
         // Relationships are given even for withheld people: names and links only.
         var parents = new JsonArray();
-        foreach (var f in doc.ParentFamilies(p))
+        var parentFamilies = doc.ParentFamilies(p).ToList();
+        foreach (var f in parentFamilies)
         {
             var link = f.Children.First(c => c.PersonId == p.Id);
             parents.Add(Compact(new JsonObject
@@ -248,6 +249,8 @@ public sealed partial class AssistantTools
                 ["mother"] = RefOrNull(doc.PartnerBySex(f, Sex.Female, 2)),
                 ["relationship_to_partner1"] = link.Nature1.ToString(),
                 ["relationship_to_partner2"] = link.Nature2.ToString(),
+                // The set the pedigree and charts follow, when there is more than one (update_person preferred_parents).
+                ["preferred"] = parentFamilies.Count > 1 && f == parentFamilies[0] ? true : null,
             }));
         }
         var families = new JsonArray();

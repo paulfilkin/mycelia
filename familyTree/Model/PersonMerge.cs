@@ -50,6 +50,11 @@ public static class PersonMerge
         }
         CombineSameCouples(doc);
 
+        // Preferred parents: the kept record's, else the merged one's, and only while it is one of their parent families.
+        keep.PreferredParentsId ??= merge.PreferredParentsId;
+        if (keep.PreferredParentsId is { } preferred && !doc.Data.Families.Any(f => f.Id == preferred && f.Children.Any(c => c.PersonId == keep.Id)))
+            keep.PreferredParentsId = null;
+
         if (doc.Data.HomePersonId == merge.Id) doc.Data.HomePersonId = keep.Id;
         for (var i = 0; i < doc.Data.History.Count; i++)
             if (doc.Data.History[i] == merge.Id) doc.Data.History[i] = keep.Id;
@@ -120,6 +125,8 @@ public static class PersonMerge
             foreach (var c in b.Children)
                 if (!a.Children.Any(x => x.PersonId == c.PersonId)) a.Children.Add(c);
             a.Notes = JoinText(a.Notes, b.Notes);
+            // Children who preferred the family combined away prefer the one it went into.
+            foreach (var p in doc.Data.People.Where(p => p.PreferredParentsId == b.Id)) p.PreferredParentsId = a.Id;
             families.RemoveAt(j);
         }
     }

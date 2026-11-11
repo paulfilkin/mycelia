@@ -40,7 +40,7 @@ public sealed partial class AssistantTools
                     + (args.Str("relation") == "spouse" ? UnnamedPartnerNote(args, Doc.GetPerson(args.Str("relative_id"))) : "")),
 
         Write("update_person", "Change a person",
-            "Changes a person's names, sex, notes or Private mark. Only the fields given change.",
+            "Changes a person's names, sex, notes, Private mark or preferred parents. Only the fields given change.",
             Schema.Object(
                 ("person_id", Schema.String("Whose details."), true),
                 ("given_names", Schema.String("New given names."), false),
@@ -48,9 +48,15 @@ public sealed partial class AssistantTools
                 ("suffix", Schema.String("New suffix (an empty string removes it)."), false),
                 ("sex", Schema.String("Male, Female or Unknown.", "Male", "Female", "Unknown"), false),
                 ("notes", Schema.String("The whole new notes text (replaces the notes)." + NoteRule), false),
-                ("private", Schema.Boolean("Mark the person Private (left out of exports unless chosen)."), false)),
+                ("private", Schema.Boolean("Mark the person Private (left out of exports unless chosen)."), false),
+                ("preferred_parents", Schema.String("For someone with two or more sets of parents: the family_id (from get_person's parents) the pedigree and charts should follow."), false)),
             UpdatePerson,
-            args => $"Change {NameOf(args)}: {string.Join(", ", new[] { "given_names", "surname", "suffix", "sex", "notes", "private" }.Where(k => args[k] is not null).Select(k => k.Replace('_', ' ')))}."),
+            args =>
+            {
+                var parts = new[] { "given_names", "surname", "suffix", "sex", "notes", "private" }.Where(k => args[k] is not null).Select(k => k.Replace('_', ' ')).ToList();
+                if (Doc.GetFamily(args.Str("preferred_parents")) is { } pf) parts.Add($"preferred parents {Doc.CoupleName(pf)}");
+                return $"Change {NameOf(args)}: {string.Join(", ", parts)}.";
+            }),
 
         Write("delete_person", "Delete a person",
             "Deletes a person and all of their facts. Their relatives stay in the tree.",
@@ -664,8 +670,12 @@ public sealed partial class AssistantTools
     {
         var p = PersonArg(args);
         var sex = args.Str("sex") is null ? p.Sex : EnumArg(args, "sex", p.Sex);
+        var preferred = args.Str("preferred_parents");
+        if (preferred is not null && !Doc.ParentFamilies(p).Any(f => f.Id == preferred))
+            throw new ArgumentException($"{preferred} isn't one of {p.DisplayName}'s parent families; get_person lists them.");
         return Change(() =>
         {
+            if (preferred is not null) p.PreferredParentsId = preferred;
             if (args["given_names"] is not null) p.Given = args.Str("given_names") ?? "";
             if (args["surname"] is not null) p.Surname = args.Str("surname") ?? "";
             if (args["suffix"] is not null) p.Suffix = args.Str("suffix") ?? "";

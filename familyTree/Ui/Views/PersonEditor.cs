@@ -421,14 +421,33 @@ public sealed class PersonEditor : UserControl
                 nature.ToolTip = $"How {p.Given} is related to this parent";
                 sp.Children.Add(PersonRow(parent, role, nature));
             }
+            var parentActions = new WrapPanel();
+            // With two or more sets of parents, the preferred set (listed first) is marked and the others can be chosen;
+            // the pedigree, charts and Father and Mother follow it (TreeDocument.ParentFamilies).
+            if (parentFamilies.Count > 1)
+            {
+                if (fam == parentFamilies[0])
+                {
+                    var preferred = UiKit.Text("Preferred", "Caption");
+                    preferred.VerticalAlignment = VerticalAlignment.Center;
+                    preferred.Margin = new Thickness(0, 0, 12, 0);
+                    parentActions.Children.Add(preferred);
+                }
+                else
+                {
+                    var famId = fam.Id;
+                    parentActions.Children.Add(UiKit.Button("GhostButton", "Make preferred", (_, _) =>
+                        Doc.Change(() => { if (Doc.GetPerson(p.Id) is { } person) person.PreferredParentsId = famId; }), "Check"));
+                }
+            }
             var detach = UiKit.Button("GhostButton", "Detach from these parents", (_, _) =>
             {
                 if (Dialogs.Confirm("Detach from parents", $"Remove the link between {p.DisplayName} and {Doc.CoupleName(fam)}?  Nobody is deleted.", "Detach"))
                     Doc.Change(() => Doc.DetachChild(fam, p));
             }, "Unlink");
-            detach.HorizontalAlignment = HorizontalAlignment.Left;
             detach.Foreground = UiKit.Brush("Muted");
-            sp.Children.Add(detach);
+            parentActions.Children.Add(detach);
+            sp.Children.Add(parentActions);
         }
         var parentButtons = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
         if (Doc.Father(p) is null) parentButtons.Children.Add(UiKit.Button("GhostButton", "Add father", (_, _) => PersonActions.AddParent(_state, p, Sex.Male), "Plus"));
