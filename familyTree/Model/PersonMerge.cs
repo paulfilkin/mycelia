@@ -131,6 +131,76 @@ public static class PersonMerge
         }
     }
 
+    // ---------------------------------------------------------------- combining two families
+
+    /// <summary>
+    /// The person two families share, when they can be combined: both hold that person, and between them at most one
+    /// other partner (one family has an unknown spouse, or both hold the same couple).  Null when they can't: two
+    /// different named spouses are two people, merged with <see cref="Merge"/> if they are the same.
+    /// </summary>
+    public static Person? SharedPartner(TreeDocument doc, Family a, Family b)
+    {
+        if (a == b) return null;
+        foreach (var id in new[] { a.Partner1Id, a.Partner2Id }.OfType<string>().Distinct())
+        {
+            if (!b.HasPartner(id)) continue;
+            var x = a.OtherPartner(id);
+            var y = b.OtherPartner(id);
+            if (x is null || y is null || x == y) return doc.GetPerson(id);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// The family two combinable families become: the one with the other partner, or <paramref name="first"/> when
+    /// both or neither have one.
+    /// </summary>
+    public static Family KeptFamily(TreeDocument doc, Family first, Family second, Person shared) =>
+        first.OtherPartner(shared.Id) is null && second.OtherPartner(shared.Id) is not null ? second : first;
+
+    /// <summary>
+    /// Combines two families (Combine with... in the Family tab, the Assistant's combine_families; TDD 7.1).  Run inside
+    /// <see cref="TreeDocument.Change"/>.  The family kept is <see cref="KeptFamily"/>: the one with the spouse, else
+    /// <paramref name="first"/>.  The other family's children join, keeping how they are related to the shared partner
+    /// and, when they came from a family with the spouse unknown, becoming Natural children of the kept family's spouse;
+    /// couple facts are combined as in <see cref="Merge"/>; notes are joined; spouse order and preferred parents that
+    /// named the other family name the kept one.  Gives the family kept and the number of children moved.
+    /// </summary>
+    public static (Family Kept, int Moved) CombineFamilies(TreeDocument doc, Family first, Family second)
+    {
+        var shared = SharedPartner(doc, first, second) ?? throw new InvalidOperationException("Those two families can't be combined.");
+        var keep = KeptFamily(doc, first, second, shared);
+        var other = keep == first ? second : first;
+        var moved = 0;
+        foreach (var c in other.Children)
+        {
+            if (keep.Children.Any(x => x.PersonId == c.PersonId)) continue;
+            var toShared = other.Partner1Id == shared.Id ? c.Nature1 : c.Nature2;
+            var toSpouse = other.OtherPartner(shared.Id) is null ? ChildNature.Natural : (other.Partner1Id == shared.Id ? c.Nature2 : c.Nature1);
+            keep.Children.Add(new ChildLink
+            {
+                PersonId = c.PersonId,
+                Nature1 = keep.Partner1Id == shared.Id ? toShared : toSpouse,
+                Nature2 = keep.Partner2Id == shared.Id ? toShared : toSpouse,
+            });
+            moved++;
+        }
+        MergeFacts(keep.Facts, other.Facts);
+        keep.Notes = JoinText(keep.Notes, other.Notes);
+        foreach (var p in doc.Data.People)
+        {
+            if (p.PreferredParentsId == other.Id) p.PreferredParentsId = keep.Id;
+            var i = p.SpouseOrder.IndexOf(other.Id);
+            if (i >= 0)
+            {
+                if (p.SpouseOrder.Contains(keep.Id)) p.SpouseOrder.RemoveAt(i);
+                else p.SpouseOrder[i] = keep.Id;
+            }
+        }
+        doc.Data.Families.Remove(other);
+        return (keep, moved);
+    }
+
     private static string JoinText(string a, string b)
     {
         if (b.Length == 0 || string.Equals(a, b, StringComparison.Ordinal)) return a;

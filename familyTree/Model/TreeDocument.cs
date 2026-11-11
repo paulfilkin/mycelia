@@ -122,6 +122,18 @@ public sealed class TreeDocument
     public IEnumerable<Person> Siblings(Person p) =>
         ParentFamilies(p).SelectMany(Children).Where(c => c != p).Distinct();
 
+    /// <summary>
+    /// Children of each parent's other families, who share one parent with this person and are not also full siblings
+    /// (the Family tab lists them after the siblings, with kinship's "half" wording).
+    /// </summary>
+    public IEnumerable<Person> HalfSiblings(Person p)
+    {
+        var own = ParentFamilies(p).ToHashSet();
+        var siblings = Siblings(p).ToHashSet();
+        return Parents(p).SelectMany(parent => SpouseFamilies(parent).Where(f => !own.Contains(f)))
+            .SelectMany(Children).Where(c => c != p && !siblings.Contains(c)).Distinct();
+    }
+
     public IEnumerable<Person> PeopleAtPlace(Place place) =>
         Data.People.Where(p => p.Facts.Any(f => f.PlaceId == place.Id));
 

@@ -157,6 +157,20 @@ public static class DataChecker
             && string.Equals(p.Surname, preferredSpouse.Surname, StringComparison.InvariantCultureIgnoreCase))
             yield return Issue("Has the same surname as the spouse.", "Names");
 
+        // Relationship checks (Design considerations, Relationship checks): this program's own.
+        foreach (var spouseId in families.Select(f => f.OtherPartner(p.Id)).OfType<string>().GroupBy(id => id).Where(g => g.Count() > 1).Select(g => g.Key))
+            if (doc.GetPerson(spouseId) is { } twice)
+                yield return Issue($"Recorded twice as a couple with {twice.DisplayName}.", "Relationships");
+        var naturalTo = doc.ParentFamilies(p)
+            .SelectMany(f => f.Children.Where(c => c.PersonId == p.Id).SelectMany(c => new[] { (Id: f.Partner1Id, Nature: c.Nature1), (Id: f.Partner2Id, Nature: c.Nature2) }))
+            .Where(x => x.Id is not null && x.Nature == ChildNature.Natural)
+            .GroupBy(x => x.Id!).Where(g => g.Count() > 1).Select(g => g.Key);
+        foreach (var parentId in naturalTo)
+            if (doc.GetPerson(parentId) is { } parent)
+                yield return Issue($"Natural child of {parent.DisplayName} in two families.", "Relationships");
+        if (p.IsUnnamed)
+            yield return Issue("Has no name, or only \"?\" or \"Unknown\".", "Relationships");
+
         // Missing details
         if (birth is null || birth.ParsedDate.IsEmpty) yield return Issue("Birth date is missing.", "Missing");
         if (preferredFamily is not null && hasSpouse && preferredFamily.Type == CoupleType.Spouse && (marriage is null || marriage.ParsedDate.IsEmpty))

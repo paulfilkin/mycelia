@@ -7,6 +7,20 @@ understand what changed without reading the diff.
 
 ### New
 
+- **Combine two families.**  When a person has a family with an unknown spouse that is really
+  their family with a named spouse, or the same couple has been recorded twice, Combine with... on
+  the family's card in the Family tab makes them one.  The children, couple facts and notes move
+  across, and children from the family with the unknown spouse become the spouse's children.  The
+  Assistant can do the same with a new tool, combine_families, which asks first.
+- **Relationship checks.**  Find data errors now also lists couples recorded twice, children
+  linked as the natural child of the same parent in two families, and records with no name or
+  only "?" or "Unknown".
+- **Make unknown spouse.**  A spouse recorded only as "?" (as some programs export an unknown
+  spouse) can be turned into an unknown spouse from their card, keeping the family and its
+  children.
+- **Half-siblings in the Family tab.**  The Siblings list now includes the children of each
+  parent's other families, described as half-brothers and half-sisters.
+
 - **Preferred parents.**  Someone with more than one set of parents, such as birth parents and
   adoptive parents, can have one set chosen as preferred with Make preferred in the Family tab.
   The tree, the charts, the family strip, the Person view and the data checks show those parents.

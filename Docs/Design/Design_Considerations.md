@@ -127,6 +127,15 @@ Both dates must be real calendar dates (not text, not ranges) with years.  They 
 - Sex unknown; person with no spouse, parents or children.
 - Preferred parents are chosen with Make preferred in the Family tab; until they are, the first family listing the person as a child counts, so there is no "preferred spouse or parents not set" check.
 
+### Relationship checks
+
+These are Mycelia's own, under the category Relationships.
+
+- The same couple recorded as two families: "Recorded twice as a couple with {spouse}."  Combine with... in the Family tab makes them one.
+- A child linked as Natural to the same parent in two sets of parents: "Natural child of {parent} in two families."  It usually means one family has the other parent missing and should be combined with the couple's family.
+- A record with no name, or with only "?" or "Unknown" as its names: "Has no name, or only "?" or "Unknown"."  Some programs record an unknown spouse this way.  Such a record is a placeholder, not a person: give it the name once it is known, or use Make unknown spouse to leave the spouse unknown.  The Assistant names such a record rather than adding the person again.
+- A family with no partners is not flagged: Add sibling makes one to hold siblings whose parents are not recorded.
+
 ## Index sorting
 
 - Sort orders: family name, given name, birth date, marriage date, death date.  There is no sort by place.

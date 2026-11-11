@@ -469,6 +469,26 @@ public sealed class PersonEditor : UserControl
             if (spouse is not null)
             {
                 inner.Children.Add(PersonRow(spouse, Doc.Marriage(fam)));
+                // A placeholder record ("?", no name) can be turned into an unknown spouse: the record goes, the family
+                // with its children and couple facts stays (Design considerations, Relationship checks).
+                if (spouse.IsUnnamed)
+                {
+                    var placeholder = new WrapPanel { Margin = new Thickness(0, 0, 0, 6) };
+                    var note = UiKit.Text("No name recorded", "Caption");
+                    note.VerticalAlignment = VerticalAlignment.Center;
+                    note.Margin = new Thickness(0, 0, 12, 0);
+                    placeholder.Children.Add(note);
+                    var record = spouse;
+                    placeholder.Children.Add(UiKit.Button("GhostButton", "Make unknown spouse", (_, _) =>
+                    {
+                        var facts = record.Facts.Count;
+                        if (Dialogs.Confirm("Make unknown spouse",
+                                $"Delete the record \"{record.DisplayName}\"{(facts == 0 ? "" : facts == 1 ? " and its 1 fact" : $" and its {facts} facts")}?  This family, its children and its couple facts stay, with the spouse unknown.  To give them a name instead, click them and type it.",
+                                "Delete record"))
+                            Doc.Change(() => Doc.RemovePerson(record));
+                    }, "Unlink"));
+                    inner.Children.Add(placeholder);
+                }
             }
             else
             {
@@ -533,6 +553,26 @@ public sealed class PersonEditor : UserControl
                 detach.Foreground = UiKit.Brush("Muted");
                 kidButtons.Children.Add(detach);
             }
+            // Combine with...: another of the person's families with the spouse unknown, or the same couple again.
+            var combinable = families.Where(o => o != fam && PersonMerge.SharedPartner(Doc, fam, o) is not null).ToList();
+            if (combinable.Count > 0)
+            {
+                var thisFamily = fam;
+                Button? combine = null;
+                combine = UiKit.Button("GhostButton", "Combine with...", (_, _) =>
+                {
+                    var menu = new ContextMenu { PlacementTarget = combine, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+                    foreach (var o in combinable)
+                    {
+                        var other = o;
+                        var item = new MenuItem { Header = FamilyLabel(p, other) };
+                        item.Click += (_, _) => CombineFamilies(p, thisFamily, other);
+                        menu.Items.Add(item);
+                    }
+                    menu.IsOpen = true;
+                }, "Link");
+                kidButtons.Children.Add(combine);
+            }
             inner.Children.Add(kidButtons);
             box.Child = inner;
             sp.Children.Add(box);
@@ -552,10 +592,43 @@ public sealed class PersonEditor : UserControl
         var siblings = Doc.Siblings(p).OrderBy(c => c.Birth?.ParsedDate.SortKey ?? long.MaxValue).ToList();
         sp.Children.Add(UiKit.Text(siblings.Count == 0 ? "SIBLINGS" : $"SIBLINGS ({siblings.Count})", "SectionLabel"));
         foreach (var s in siblings) sp.Children.Add(PersonRow(s, Kinship.Describe(Doc, p, s, withPath: false).Text));
+        // Half-siblings through a parent's other families follow, with kinship's "half" wording.
+        foreach (var s in Doc.HalfSiblings(p).OrderBy(c => c.Birth?.ParsedDate.SortKey ?? long.MaxValue))
+            sp.Children.Add(PersonRow(s, Kinship.Describe(Doc, p, s, withPath: false).Text));
         var addSib = UiKit.Button("GhostButton", "Add sibling", (_, _) => PersonActions.AddSibling(_state, p), "Plus");
         addSib.HorizontalAlignment = HorizontalAlignment.Left;
         sp.Children.Add(addSib);
         return sp;
+    }
+
+    /// <summary>A family as the person sees it: "Mary Smith, m. Apr 1860, 2 children" or "Unknown spouse, 1 child".</summary>
+    private string FamilyLabel(Person p, Family f)
+    {
+        var parts = new List<string> { Doc.GetPerson(f.OtherPartner(p.Id))?.DisplayName ?? "Unknown spouse" };
+        if (Doc.Marriage(f) is { Length: > 0 } m) parts.Add(m);
+        parts.Add(f.Children.Count switch { 0 => "no children", 1 => "1 child", var n => $"{n} children" });
+        return string.Join(", ", parts);
+    }
+
+    /// <summary>Combine with...: asks, then combines the two families as one undo step (PersonMerge.CombineFamilies).</summary>
+    private void CombineFamilies(Person p, Family first, Family second)
+    {
+        if (PersonMerge.SharedPartner(Doc, first, second) is not { } shared) return;
+        var keep = PersonMerge.KeptFamily(Doc, first, second, shared);
+        var other = keep == first ? second : first;
+        var spouse = Doc.GetPerson(keep.OtherPartner(shared.Id));
+        var moving = other.Children.Count(c => !keep.Children.Any(x => x.PersonId == c.PersonId));
+        var what = new List<string>();
+        if (moving > 0) what.Add(moving == 1 ? "its child" : $"its {moving} children");
+        if (other.Facts.Count > 0) what.Add("its couple facts");
+        if (other.Notes.Length > 0) what.Add("its notes");
+        var text = $"Combine the family with {FamilyLabel(p, other)} into the family with {FamilyLabel(p, keep)}?";
+        if (what.Count > 0) text += $"  {char.ToUpper(what[0][0])}{string.Join(" and ", what)[1..]} {(what is ["its child"] ? "moves" : "move")} across.";
+        if (moving > 0 && spouse is not null && other.OtherPartner(shared.Id) is null)
+            text += $"  {spouse.DisplayName} becomes the parent of {(moving == 1 ? "that child" : "those children")}.";
+        text += "  Nobody is deleted.";
+        if (Dialogs.Confirm("Combine families", text, "Combine"))
+            Doc.Change(() => PersonMerge.CombineFamilies(Doc, first, second));
     }
 
     // ---------------------------------------------------------------- notes and media

@@ -148,6 +148,20 @@ public sealed class Person : Observable
         }
     }
 
+    /// <summary>
+    /// No given name or surname, or only "?" or "Unknown": a placeholder for someone not yet identified, as some
+    /// programs' GEDCOM files record an unknown spouse (Design considerations, Relationship checks).
+    /// </summary>
+    [JsonIgnore]
+    public bool IsUnnamed
+    {
+        get
+        {
+            static bool Blank(string s) => s.Trim() is "" or "?" || s.Trim().Equals("Unknown", StringComparison.OrdinalIgnoreCase);
+            return Blank(Given) && Blank(Surname);
+        }
+    }
+
     /// <summary>"Surname, Given Suffix" for the index (Design considerations, Names).</summary>
     [JsonIgnore]
     public string IndexName

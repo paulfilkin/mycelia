@@ -266,7 +266,8 @@ repositories and media, rebuilt after every change (`RebuildIndex`; duplicate id
 
 Family queries: `ParentFamilies`, `ParentFamily`, `SpouseFamilies`, `Father`, `Mother`,
 `Parents`, `Spouses`, `Children(family)`, `Children(person)` (across all their families, distinct),
-`Siblings` (other children of the parent families), `PeopleAtPlace`, `ParentFamilies` with the
+`Siblings` (other children of the parent families), `HalfSiblings` (children of each parent's
+other families who are not also full siblings), `PeopleAtPlace`, `ParentFamilies` with the
 preferred parents first (section 5),
 `SpouseFamilies` in the person's `SpouseOrder` (families not listed follow in file order), `AllFacts()` (every person
 and couple fact with its owner), `OwnerName`, `CoupleName` ("A & B", one name, or "Unknown
@@ -333,6 +334,16 @@ chosen again and Swap exchanges them.  Opened from the main menu, the person pan
   combined away prefer the one kept.
 - Preferred parents: the kept record's, else the merged record's, cleared when it is not one of the
   kept person's parent families after the merge.
+
+**Combining two families** (`PersonMerge.CombineFamilies(doc, first, second)`, run inside one
+`Change` by Combine with... in the Family tab and by the Assistant's `combine_families`).
+`SharedPartner` allows it when both families hold the same person and between them at most one
+other partner: a family with the spouse unknown and one with the spouse, or the same couple twice.
+Two different named spouses are refused; if they are one person, Merge comes first.  `KeptFamily`
+is the one with the spouse, else the first given.  The other family's children join, keeping their
+relationship to the shared partner; children from a family with the spouse unknown become Natural
+children of the kept family's spouse.  Couple facts are combined as in Merge, notes joined, and
+spouse orders and preferred parents naming the removed family name the kept one.
 - The home person and the history follow; empty families are removed.
 
 **Duplicates** (`PersonMerge.FindDuplicates`): people grouped by Soundex of the surname; within a
@@ -617,7 +628,7 @@ workspace can show the line that joins two people.
 ## 13. Data-Error Checks
 
 `DataChecker.Check(doc)` runs `CheckPerson` for everyone in index order and returns `DataIssue`
-records (person, message, category: Dates, Parents, Facts, Names or Missing), one per distinct
+records (person, message, category: Dates, Parents, Facts, Names, Relationships or Missing), one per distinct
 message per person.  The checks, limits and date comparison are in Design considerations, Data
 error checks:
 
@@ -643,6 +654,11 @@ error checks:
   descriptions ignoring case.
 - Names: a word starting or ending in a dash; any of `! @ # $ % ^ & * + = { } | ; : / ~`; the
   same surname as the preferred spouse (ignoring "?" names).
+- Relationships (this program's own, Design considerations, Relationship checks): two spouse
+  families with the same partner ("Recorded twice as a couple with ..."); the same parent in two of
+  the person's parent families with the link Natural in both ("Natural child of ... in two
+  families"); `Person.IsUnnamed`, no name or only "?" or "Unknown".  Families with no partners are
+  not flagged: Add sibling makes them to hold siblings whose parents are not recorded.
 - Missing: birth date; marriage date when the preferred family is of type Spouse; children of the
   preferred family not in birth order; unknown sex; a person attached to nobody.
 
@@ -823,7 +839,13 @@ person...") and a delete button.  Four tabs:
   right-click menu, with no family, every child of the person is left out).
   Add spouse, Link existing spouse (both by `LinkCouple`: the first family with a partner missing
   is filled, otherwise a new family is made; and Add child when there is no family yet; Set spouse order...
-  when there are two or more).  The siblings with their relation, and Add sibling.
+  when there are two or more).  Combine with... on a card, when another of the person's families
+  can be combined with it (`PersonMerge.SharedPartner`): a menu of those families ("Unknown spouse,
+  1 child"), then a confirmation saying what moves and who becomes a parent, then
+  `CombineFamilies` as one undo step.  A spouse with no name (`Person.IsUnnamed`) shows "No name
+  recorded" and Make unknown spouse, which deletes that record after a confirmation giving its
+  number of facts; the family, its children and couple facts stay as an Unknown spouse card.
+  The siblings with their relation, then the half-siblings (`HalfSiblings`), and Add sibling.
 
 **Set spouse order** (`Dialogs.SpouseOrder`, Design considerations, Spouse order): the spouses with their marriage dates, Move up and Move down, the first marked Preferred;
 OK saves `Person.SpouseOrder` as one undo step.
@@ -1262,7 +1284,7 @@ saved conversation, but a restored one can no longer revert.
 
 ### 22.3 Built-in tools (`Ai/Tools/AssistantTools*.cs`)
 
-64 tools in five partial files: `AssistantTools.cs` (the context, what the model may see, lookups,
+65 tools in five partial files: `AssistantTools.cs` (the context, what the model may see, lookups,
 the change helper and Revert), `.Read.cs`, `.Change.cs`, `.Files.cs` (moving around and files) and
 `.Research.cs` (section 25).
 `MainWindow` implements `IToolHost` for what they need from the window: the settings, the workspace
@@ -1309,7 +1331,9 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   as a parent or spouse, `link_parent` and `link_spouse` follow the linking rules of section 7, so
   `link_spouse` fills a family with a partner missing and says how many children it already had,
   keeping its type unless one is given), `unlink` (`DetachChild` or `DetachPartner`, which remove
-  a family left empty), `update_family`,
+  a family left empty), `combine_families` (`PersonMerge.CombineFamilies`, section 7.1; the card
+  names the family removed and its children; the result gives family ids and counts, no names),
+  `update_family`,
   `add_media` (a file on this computer, linked to people, optionally a portrait), `link_media`,
   `add_fact_type`, `add_historical_event`, `replace_text`, `sort_children`, `convert_names`, `undo`.
 - **Files (Ask):** `save_tree` (to its file, or a full path for a tree never saved),
@@ -1675,7 +1699,7 @@ application's own design.
   DPAPI-encrypted in the settings, and replaced by New token.
 - **The tools** are `AssistantTools.All` less those switched Off, each with `readOnlyHint` (the 29
   that only read or move around), `destructiveHint` (`delete_person`, `delete_fact`,
-  `merge_people`, `remove_citation`, `combine_places`, `unlink`, `replace_text`, `undo`,
+  `merge_people`, `remove_citation`, `combine_places`, `combine_families`, `unlink`, `replace_text`, `undo`,
   `merge_tree_file`) and `openWorldHint` (`AssistantTool.ReachesWeb`: `download_file` and
   `fetch_url`).  A `fetch_url` call from a program asks in Mycelia as the Assistant's does,
   unless its address is a listed archive API.  Living and Private people are given exactly as to
@@ -2087,7 +2111,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
-| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2).  Linking rules shared by the program and the Assistant (7): `LinkCouple`, `SetParent` moving a child into an existing couple, `RemoveIfEmpty` for `DetachPartner` too; the Unknown spouse card's buttons fill that card (15.2); `link_spouse` fills a family with a partner missing (22.3).  Preferred parents: `Person.PreferredParentsId` (5, 6), `ParentFamilies` lists them first (7), kept through detaching, moving and merging (7, 7.1, 7.2), the first `FAMC` in GEDCOM (11), Make preferred in the Family tab (15.2), `get_person` and `update_person` (22.3). |
+| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2).  Linking rules shared by the program and the Assistant (7): `LinkCouple`, `SetParent` moving a child into an existing couple, `RemoveIfEmpty` for `DetachPartner` too; the Unknown spouse card's buttons fill that card (15.2); `link_spouse` fills a family with a partner missing (22.3).  Preferred parents: `Person.PreferredParentsId` (5, 6), `ParentFamilies` lists them first (7), kept through detaching, moving and merging (7, 7.1, 7.2), the first `FAMC` in GEDCOM (11), Make preferred in the Family tab (15.2), `get_person` and `update_person` (22.3).  Combining two families (`PersonMerge.CombineFamilies`, 7.1; Combine with... 15.2; `combine_families` 22.3 and 24, 65 tools), relationship checks (13), `Person.IsUnnamed` and Make unknown spouse (15.2), `HalfSiblings` (7, 15.2). |
 | 11 November 2026 | 0.2.0 | Moving the pedigree up and down (15.2): the end cards' arrow is a button, a down button lists the focus person's children, and a double-click on the tree centres it without opening the Person view. |
 | 11 November 2026 | 0.2.0 | The right-click menu for a person (15.2, `PersonMenu`, 3) on the tree, the family strip and the index; Make home person in Main menu > Person (14). |
 | 11 November 2026 | 0.2.0 | Releases on GitHub (20): step 6 of releasing a version, the same signed installer as the updater's, built and signed on the publisher's computer. |

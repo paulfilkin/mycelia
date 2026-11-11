@@ -311,7 +311,7 @@ public sealed class ToolsView : UserControl, IWorkspace
         DockPanel.SetDock(run, Dock.Right);
         head.Children.Add(run);
         head.Children.Add(CardTitle("Warning", "Find data errors",
-            $"Looks for improbable facts: births after deaths, parents younger than {DataChecker.ParentMinimumAge} or older than {DataChecker.MotherMaximumAge} (mothers) and {DataChecker.FatherMaximumAge} (fathers), ages over {DataChecker.QuestionableDeathAge}, and missing details."));
+            $"Looks for improbable facts: births after deaths, parents younger than {DataChecker.ParentMinimumAge} or older than {DataChecker.MotherMaximumAge} (mothers) and {DataChecker.FatherMaximumAge} (fathers), ages over {DataChecker.QuestionableDeathAge}, couples recorded twice, children linked twice to the same parent, records with no name, and missing details."));
         sp.Children.Add(head);
         sp.Children.Add(_errorSummary);
         _errors.Margin = new Thickness(0, 8, 0, 0);

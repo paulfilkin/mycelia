@@ -57,7 +57,7 @@ public sealed class McpServer : IAsyncDisposable
 
     /// <summary>Tools that delete or overwrite, marked with destructiveHint for clients.</summary>
     private static readonly HashSet<string> Destructive =
-        ["delete_person", "delete_fact", "merge_people", "remove_citation", "combine_places", "unlink", "replace_text", "undo", "merge_tree_file"];
+        ["delete_person", "delete_fact", "merge_people", "remove_citation", "combine_places", "combine_families", "unlink", "replace_text", "undo", "merge_tree_file"];
 
     private readonly IMcpServerHost _host;
     private readonly int _port;

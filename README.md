@@ -51,7 +51,7 @@ conventions Mycelia follows.
 
 Ask in plain words: "complete the missing details for this person", "who are Josiah's
 grandchildren?", "find this baptism in the archives".  The Assistant uses Mycelia's own tools
-(64 of them) and the tools of any MCP servers you add.
+(65 of them) and the tools of any MCP servers you add.
 
 - **Your choice of AI model:** Anthropic, OpenAI, or any service with the OpenAI chat interface,
   including local ones such as Ollama and LM Studio, where nothing leaves your computer.

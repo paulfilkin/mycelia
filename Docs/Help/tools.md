@@ -85,6 +85,7 @@ The checks look for:
 - **Every fact:** a date before the person's birth; a date that cannot be read as a date; a fact with no date, place or description.
 - **Duplicate facts:** two facts that can only happen once, such as two births or two burials; or two facts of the same type whose details all agree.
 - **Names:** a word starting or ending with a dash; characters names do not normally have, such as ! @ # or /; the same surname as their preferred spouse.
+- **Relationships:** the same couple recorded as two families; a child linked as the natural child of the same parent in two families, which usually means one of those families has the other parent missing; a record with no name, or only "?" or "Unknown".  **Combine with...** and **Make unknown spouse** on the person's Family tab put these right; see [The People workspace](people.md#family).
 - **Missing details:** no birth date; no marriage date when the preferred relationship is of the type Spouse; children not in birth order; sex unknown; a person attached to nobody in the tree.
 
 Dates are compared only as far as both are known: two dates that give only years are compared by year.  Date ranges and text that is not a date are not compared.

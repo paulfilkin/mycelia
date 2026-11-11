@@ -390,6 +390,34 @@ public sealed partial class AssistantTools
             },
             args => $"Take {NameOf(args)} out of the family of {CoupleOf(args)}."),
 
+        Write("combine_families", "Combine two families",
+            "Combines two families of the same person into one: a family with the spouse unknown into the one with the spouse (the spouse becomes the parent of its children), or the same couple recorded twice. The family with the spouse is kept; children, couple facts and notes move across. Two families with different named spouses can't be combined: if those spouses are the same person, use merge_people.",
+            Schema.Object(
+                ("family_id", Schema.String("One family."), true),
+                ("other_family_id", Schema.String("The other family of the same person."), true)),
+            args =>
+            {
+                var first = FamilyArg(args);
+                var second = Doc.GetFamily(args.Str("other_family_id")) ?? throw new ArgumentException("There is no family with that other_family_id.  get_person lists a person's families.");
+                if (PersonMerge.SharedPartner(Doc, first, second) is null)
+                    throw new ArgumentException("Those two families don't share a person with at most one spouse between them, so they can't be combined.  If their spouses are the same person, merge_people them first.");
+                var ids = (first.Id, second.Id);
+                Family? kept = null;
+                var moved = 0;
+                Change(() => { (kept, moved) = PersonMerge.CombineFamilies(Doc, first, second); return ""; });
+                // Ids and counts only: names go to the model only through Ref and the withholding checks (TDD 22.4).
+                return $"Combined families {ids.Item1} and {ids.Item2} into family {kept!.Id}, with {moved} {(moved == 1 ? "child" : "children")} moved across; get_family shows it.";
+            },
+            args =>
+            {
+                var a = Doc.GetFamily(args.Str("family_id"));
+                var b = Doc.GetFamily(args.Str("other_family_id"));
+                if (a is null || b is null || PersonMerge.SharedPartner(Doc, a, b) is not { } shared) return "Combine two families.";
+                var keep = PersonMerge.KeptFamily(Doc, a, b, shared);
+                var other = keep == a ? b : a;
+                return $"Combine the family of {Doc.CoupleName(other)} ({other.Children.Count} {(other.Children.Count == 1 ? "child" : "children")}) into the family of {Doc.CoupleName(keep)}; the first family is removed.";
+            }),
+
         Write("update_family", "Change a family",
             "Changes a couple's type and status, or how one child is related to each partner.",
             Schema.Object(
@@ -630,18 +658,11 @@ public sealed partial class AssistantTools
 
     private const string AnotherPartnerHelp = "true only when the new partner is someone other than a partner of theirs already in the tree with no name. Without it the call is refused when there is one: name that record with update_person instead.";
 
-    /// <summary>No given name or surname, or only "?" or "Unknown": a placeholder for someone not yet identified.</summary>
-    private static bool IsUnnamed(Person p)
-    {
-        static bool Blank(string s) => s.Trim() is "" or "?" || s.Trim().Equals("Unknown", StringComparison.OrdinalIgnoreCase);
-        return Blank(p.Given) && Blank(p.Surname);
-    }
-
     /// <summary>The first partner of <paramref name="p"/> with no name, other than <paramref name="except"/>, and their family.</summary>
     private (Person Partner, Family Family)? UnnamedPartner(Person p, Person? except = null)
     {
         foreach (var f in Doc.SpouseFamilies(p))
-            if (Doc.GetPerson(f.OtherPartner(p.Id)) is { } other && other != except && IsUnnamed(other))
+            if (Doc.GetPerson(f.OtherPartner(p.Id)) is { } other && other != except && other.IsUnnamed)
                 return (other, f);
         return null;
     }
