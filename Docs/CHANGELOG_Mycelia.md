@@ -3,7 +3,7 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
-## 0.3.0 - unreleased
+## 0.3.0 - 11 November 2026
 
 Relationships made easier to get right, and the Assistant's research and citations corrected after
 using it on a real tree.
