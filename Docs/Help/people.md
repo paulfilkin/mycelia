@@ -114,12 +114,12 @@ The **Family** tab shows the person's relatives and how they are linked:
 
 - **Parents:** each parent with a box for how the person is related to them (**Natural**, **Adopted**, **Step**, **Foster**, **Related**, **Guardian**, **Sealed**, **Private** or **Unknown**).  **Detach from these parents** removes the link without deleting anyone.  Below are **Add father** and **Add mother** (when one is missing) and **Link existing parent**.
 - **Spouses and children:** a card for each spouse or partner.  Each card has:
-  - The spouse, with the marriage date, or **Add spouse** when the other partner is unknown.
+  - The spouse, with the marriage date.  When the other partner is unknown, the card reads **Unknown spouse**, with **Add spouse** and **Link existing spouse**: the person you add or choose becomes the spouse in this family, so its children and couple facts are theirs too.
   - **Relationship** (**Spouse**, **Partner**, **Friend**, **Single**, **Other**, **Unknown** or **Private**) and **Status** (**Unknown**, **Ongoing**, **Divorced**, **Deceased**, **Separated**, **Annulled**, **Private**, **Other** or **None**).
   - **Couple facts**, such as the marriage, with **Add** for a new one.  They are edited in the same way as the person's own facts.
   - **Children**, in birth order, each with a box for how the child is related to this person and a button to detach the child from the family.  When the last child is detached from a family with no spouse and no couple facts, the family is removed, so no empty **Unknown spouse** card is left.
-  - **Add child**, **Link existing child** and **End this link**.  **Link existing child** lists everyone except this family's own children, so a child recorded in the person's other family can be added to this one; detach them from the other family afterwards.  **End this link** removes the spouse from the person's family without deleting anyone; any children stay with the person.
-- Under the cards: **Add spouse**, **Link existing spouse** and, with two or more spouses, **Set spouse order...**  See [Facts, dates and sources](facts-and-sources.md#spouse-order).
+  - **Add child**, **Link existing child** and **End this link**.  **Link existing child** lists everyone except this family's own children, so a child recorded in the person's other family can be added to this one; detach them from the other family afterwards.  **End this link** removes the spouse from the person's family without deleting anyone; any children stay with the person.  A family left with no children and no couple facts is removed.
+- Under the cards: **Add spouse**, **Link existing spouse** and, with two or more spouses, **Set spouse order...**  See [Facts, dates and sources](facts-and-sources.md#spouse-order).  When the person has a family with an unknown spouse, the new spouse goes into the first one, as on that card; otherwise a new family is made.  Linking two people who are already a couple uses the family they have.
 - **Siblings:** each brother or sister with how they are related ("brother", "half sister"), and **Add sibling**.
 
 Click any relative's name or picture to go to them.
@@ -148,10 +148,11 @@ You can add a relative from several places: the dashed cards on the tree, the fa
 Choose **Add person**.  The new person is linked and selected, and the person panel shows them.
 
 - A child is added to the family you added them from.  **Add child** on someone with no spouse makes a family with only that parent.
-- A spouse added to someone who has a family with only one parent joins that family, so its children gain a second parent.
+- A spouse added to someone who has a family with only one parent joins that family, so its children gain a second parent.  From an **Unknown spouse** card, they join that card's family.
 - A sibling is added to the person's parents' family.  If the parents are not recorded, Mycelia makes a family with no parents to hold the two siblings.
+- A parent added or linked to someone whose other parent is already married to them in another family moves the child into that couple's family, so the couple is not recorded twice.  For example, if Arthur's father is recorded with no wife, and the father's marriage to Ellen is a separate family, linking Ellen as Arthur's mother moves Arthur into the father and Ellen's family.  Brothers and sisters stay where they are, and the family left empty is removed.
 
-To link someone who is already in the tree, use **Link existing parent**, **Link existing spouse** or **Link existing child** on the **Family** tab.  A window lists everyone who could be linked, with a search box; double-click a name, or select it and choose **Choose**.
+To link someone who is already in the tree, use **Link existing parent**, **Link existing spouse** or **Link existing child** on the **Family** tab.  A window lists everyone who could be linked, with a search box; double-click a name, or select it and choose **Choose**.  Linking works by the same rules as adding, and the Assistant follows them too.
 
 Every addition or link is one change, so Undo reverses it.
 

@@ -317,11 +317,57 @@ public sealed class TreeDocument
         return f;
     }
 
-    /// <summary>Places a parent into the child's parent family.</summary>
+    /// <summary>
+    /// The family for a couple, by one rule for every way of linking spouses, in the program and the Assistant (TDD 7):
+    /// their own family when they already have one, so a couple is never recorded twice; otherwise
+    /// <paramref name="open"/> when it is one of the person's families with a partner missing (an Unknown spouse card's
+    /// own buttons), or else the first such family in spouse order, so its children gain the new parent; otherwise a new
+    /// family.
+    /// </summary>
+    public Family LinkCouple(Person person, Person spouse, Family? open = null)
+    {
+        if (SpouseFamilies(person).FirstOrDefault(f => f.HasPartner(spouse.Id)) is { } existing) return existing;
+        var fill = open is not null && open.HasPartner(person.Id) && IsOpen(open) ? open : SpouseFamilies(person).FirstOrDefault(IsOpen);
+        if (fill is null) return AddFamily(person, spouse);
+        if (fill.Partner1Id is null) fill.Partner1Id = spouse.Id; else fill.Partner2Id = spouse.Id;
+        // Partner 1 is the man where known, as AddFamily does; each child's relationships follow their partner.
+        if (GetPerson(fill.Partner1Id) is { Sex: Sex.Female } && GetPerson(fill.Partner2Id) is { Sex: not Sex.Female })
+        {
+            (fill.Partner1Id, fill.Partner2Id) = (fill.Partner2Id, fill.Partner1Id);
+            foreach (var c in fill.Children) (c.Nature1, c.Nature2) = (c.Nature2, c.Nature1);
+        }
+        return fill;
+    }
+
+    /// <summary>A family with one partner slot or both empty.</summary>
+    public static bool IsOpen(Family f) => f.Partner1Id is null || f.Partner2Id is null;
+
+    /// <summary>
+    /// Places a parent into the child's parent family.  When that family has a parent missing and the parent already in
+    /// it is the new parent's partner in another family, the child moves into that couple's family instead (keeping how
+    /// they are related to the parent already linked), so the couple isn't recorded twice; the family left behind goes
+    /// when it is empty (<see cref="RemoveIfEmpty"/>).  Brothers and sisters in the old family stay, since they may have
+    /// another parent.
+    /// </summary>
     public void SetParent(Person child, Person parent)
     {
+        if (ParentFamilies(child).Any(x => x.HasPartner(parent.Id))) return;
         var f = EnsureParentFamily(child);
-        if (f.HasPartner(parent.Id)) return;
+        if (IsOpen(f) && GetPerson(f.Partner1Id ?? f.Partner2Id) is { } other
+            && SpouseFamilies(other).FirstOrDefault(x => x != f && x.HasPartner(parent.Id)) is { } couple)
+        {
+            var link = f.Children.First(c => c.PersonId == child.Id);
+            var toOther = f.Partner1Id == other.Id ? link.Nature1 : link.Nature2;
+            f.Children.Remove(link);
+            couple.Children.Add(new ChildLink
+            {
+                PersonId = child.Id,
+                Nature1 = couple.Partner1Id == other.Id ? toOther : ChildNature.Natural,
+                Nature2 = couple.Partner2Id == other.Id ? toOther : ChildNature.Natural,
+            });
+            RemoveIfEmpty(f);
+            return;
+        }
         if (f.Partner1Id is null && (parent.Sex != Sex.Female || f.Partner2Id is not null)) f.Partner1Id = parent.Id;
         else if (f.Partner2Id is null) f.Partner2Id = parent.Id;
         else
@@ -349,17 +395,24 @@ public sealed class TreeDocument
     public void DetachChild(Family f, Person child)
     {
         f.Children.RemoveAll(c => c.PersonId == child.Id);
-        // A family left with no children and at most one partner and no facts is no family at all (as RemovePerson
-        // leaves it); otherwise it lingers as an "Unknown spouse" card the person panel can't remove.
-        if (f.Children.Count == 0 && (f.Partner1Id is null && f.Partner2Id is null || (f.Partner1Id is null || f.Partner2Id is null) && f.Facts.Count == 0))
-            Data.Families.Remove(f);
+        RemoveIfEmpty(f);
     }
 
     public void DetachPartner(Family f, Person partner)
     {
         if (f.Partner1Id == partner.Id) f.Partner1Id = null;
         if (f.Partner2Id == partner.Id) f.Partner2Id = null;
-        if (f.Partner1Id is null && f.Partner2Id is null && f.Children.Count == 0) Data.Families.Remove(f);
+        RemoveIfEmpty(f);
+    }
+
+    /// <summary>
+    /// Removes a family with no children and no partners, or with one partner and no facts either: no family at all (as
+    /// RemovePerson leaves it); otherwise it lingers as an "Unknown spouse" card the person panel can't remove.
+    /// </summary>
+    private void RemoveIfEmpty(Family f)
+    {
+        if (f.Children.Count == 0 && (f.Partner1Id is null && f.Partner2Id is null || IsOpen(f) && f.Facts.Count == 0))
+            Data.Families.Remove(f);
     }
 
     /// <summary>Removes places no fact uses any more.</summary>

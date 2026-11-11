@@ -277,14 +277,28 @@ Edits are building blocks meant to be called inside `Change` (section 8):
 - `AddFamily(a, b)` (partner 1 the man, as above); `AddChild(family, child, nature)` ignores a
   child already listed; `EnsureParentFamily(child)` creates an empty-parent family when the child
   has none.
-- `SetParent(child, parent)` fills partner 1 (unless the parent is a woman and slot 2 is free),
-  then partner 2, else makes a second family for the child with this parent.
+- **Linking rules.**  Every way of linking people, in the program and in the Assistant's tools,
+  goes through these, so the two behave the same:
+  - `LinkCouple(person, spouse, open?)` gives the couple's family: theirs when they already have
+    one, so a couple is never recorded twice; otherwise `open` when it is one of the person's
+    families with a partner missing (an Unknown spouse card's own buttons), or else the first such
+    family in spouse order, so its children gain the new parent; otherwise a new family.  A man
+    filling a woman's open family becomes partner 1, and each child's relationships are swapped
+    with the slots.
+  - `SetParent(child, parent)` does nothing when the parent is already one of the child's parents.
+    When the child's parent family has a partner missing and the parent already in it is the new
+    parent's partner in another family, the child moves into that couple's family, keeping how
+    they are related to the parent already linked (to the new parent, Natural); brothers and sisters
+    stay, since they may have another parent.  Otherwise it fills partner 1 (unless the parent is a
+    woman and slot 2 is free), then partner 2, else makes a second family for the child with this
+    parent.
+  - `DetachChild` and `DetachPartner` remove one link, then `RemoveIfEmpty` drops the family when
+    it has no children and either no partners or one partner and no facts, as `RemovePerson`
+    does; otherwise it stayed as an Unknown spouse card the person panel can't remove.  A family
+    keeping a marriage stays.
 - `RemovePerson` clears the person from partner slots, child links and media links, removes
   families that are now empty, or one-partner families with no children and no facts, and moves
   the home person to the first person when needed.
-- `DetachChild` and `DetachPartner` remove one link and drop the family if nothing is left.
-  `DetachChild` also drops a family left with one partner, no children and no facts, as
-  `RemovePerson` does; otherwise it stayed as an Unknown spouse card the person panel can't remove.
 - `PrunePlaces` removes places no fact uses that have no coordinates and no notes.
 - `Counts()` gives people, families, places, sources, media and distinct surnames for the home
   page and status bar.
@@ -786,13 +800,15 @@ person...") and a delete button.  Four tabs:
   immigration, emigration, also known as) and the rest under More facts.
 - *Family:* the parents with a nature box each and a detach button; Add father, Add mother, Link
   existing parent.  Each spouse family, in the person's spouse order when one is set, otherwise in
-  marriage-date order, as a card: the spouse (or Unknown spouse with Add spouse),
+  marriage-date order, as a card: the spouse (or Unknown spouse with Add spouse and Link existing
+  spouse, which fill that card's family, section 7),
   relationship type and status boxes, the couple facts with the same editor, the children in birth
   order with a nature box and a detach button, Add child, Link existing child and End this link.
   Link existing child on a card leaves out only that family's children and partners, so a child
   of the person's other family can be moved into it (`PersonActions.LinkExistingChild`; from the
   right-click menu, with no family, every child of the person is left out).
-  Add spouse, Link existing spouse (and Add child when there is no family yet; Set spouse order...
+  Add spouse, Link existing spouse (both by `LinkCouple`: the first family with a partner missing
+  is filled, otherwise a new family is made; and Add child when there is no family yet; Set spouse order...
   when there are two or more).  The siblings with their relation, and Add sibling.
 
 **Set spouse order** (`Dialogs.SpouseOrder`, Design considerations, Spouse order): the spouses with their marriage dates, Move up and Move down, the first marked Preferred;
@@ -1273,8 +1289,11 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   accessed date the program can't read is refused before anything changes),
   `remove_citation`, `add_source`, `update_source`, `add_repository`, `update_place`
   (coordinates checked as decimal degrees), `combine_places` (as the Places view's Combine),
-  `link_parent`, `link_spouse`, `link_child` (each with how the child is related), `unlink` (a
-  couple left with one partner, no children and no facts is removed), `update_family`,
+  `link_parent`, `link_spouse`, `link_child` (each with how the child is related; `add_person`
+  as a parent or spouse, `link_parent` and `link_spouse` follow the linking rules of section 7, so
+  `link_spouse` fills a family with a partner missing and says how many children it already had,
+  keeping its type unless one is given), `unlink` (`DetachChild` or `DetachPartner`, which remove
+  a family left empty), `update_family`,
   `add_media` (a file on this computer, linked to people, optionally a portrait), `link_media`,
   `add_fact_type`, `add_historical_event`, `replace_text`, `sort_children`, `convert_names`, `undo`.
 - **Files (Ask):** `save_tree` (to its file, or a full path for a tree never saved),
@@ -2052,7 +2071,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
-| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2). |
+| 11 November 2026 | Unreleased | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2).  Linking rules shared by the program and the Assistant (7): `LinkCouple`, `SetParent` moving a child into an existing couple, `RemoveIfEmpty` for `DetachPartner` too; the Unknown spouse card's buttons fill that card (15.2); `link_spouse` fills a family with a partner missing (22.3). |
 | 11 November 2026 | 0.2.0 | Moving the pedigree up and down (15.2): the end cards' arrow is a button, a down button lists the focus person's children, and a double-click on the tree centres it without opening the Person view. |
 | 11 November 2026 | 0.2.0 | The right-click menu for a person (15.2, `PersonMenu`, 3) on the tree, the family strip and the index; Make home person in Main menu > Person (14). |
 | 11 November 2026 | 0.2.0 | Releases on GitHub (20): step 6 of releasing a version, the same signed installer as the updater's, built and signed on the publisher's computer. |

@@ -35,7 +35,18 @@ understand what changed without reading the diff.
   tab, the list now leaves out only that family's children.  Before, it left out every child of the
   person, so a child recorded with the wrong partner couldn't be moved to the right one.
 - **No empty "Unknown spouse" cards.**  Detaching the last child from a family with no spouse and
-  no couple facts now removes the family.  Before, the empty card stayed, with no way to remove it.
+  no couple facts now removes the family, and so does End this link when it leaves a family with
+  no children and no couple facts.  Before, the empty card stayed, with no way to remove it.
+- **One set of rules for linking people.**  Adding and linking spouses and parents now work the
+  same way everywhere, in the Family tab, the right-click menu and the Assistant:
+  - A couple is never recorded twice.  Linking two people who are already a couple uses their
+    family.
+  - Link existing spouse fills a family with an unknown spouse, as Add spouse already did, so its
+    children gain the new parent.  Before, it always made a new family.
+  - An Unknown spouse card's Add spouse fills that card, not the first family with an unknown
+    spouse, and the card now has Link existing spouse too.
+  - Adding or linking a parent whose partner is already the child's other parent in another
+    family moves the child into that couple's family, instead of recording the couple twice.
 - **Asked to find something, the Assistant searches** without first asking whether it may.  Sites
   that aren't on its list still ask before they are read.
 

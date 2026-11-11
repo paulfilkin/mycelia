@@ -453,12 +453,12 @@ public sealed class PersonEditor : UserControl
             }
             else
             {
-                var unknown = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
-                var addSp = UiKit.Button("GhostButton", "Add spouse", (_, _) => PersonActions.AddSpouse(_state, p), "Plus");
-                DockPanel.SetDock(addSp, Dock.Right);
-                unknown.Children.Add(addSp);
-                unknown.Children.Add(UiKit.Text("Unknown spouse", "Caption"));
-                inner.Children.Add(unknown);
+                // The card's own buttons fill this family, not the first with a partner missing.
+                inner.Children.Add(UiKit.Text("Unknown spouse", "Caption"));
+                var fill = new WrapPanel { Margin = new Thickness(0, 2, 0, 8) };
+                fill.Children.Add(UiKit.Button("GhostButton", "Add spouse", (_, _) => PersonActions.AddSpouse(_state, p, fam), "Plus"));
+                fill.Children.Add(UiKit.Button("GhostButton", "Link existing spouse", (_, _) => PersonActions.LinkExistingSpouse(_state, p, fam), "Link"));
+                inner.Children.Add(fill);
             }
 
             var typeRow = new WrapPanel { Margin = new Thickness(0, 2, 0, 8) };

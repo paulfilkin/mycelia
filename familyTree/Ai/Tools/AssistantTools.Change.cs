@@ -302,7 +302,7 @@ public sealed partial class AssistantTools
             args => $"Make {NameOf(args, "parent_id")} a parent of {NameOf(args, "child_id")}."),
 
         Write("link_spouse", "Link a spouse",
-            "Makes two people already in the tree a couple (a new family). Gives the family's id, for add_fact (marriage) and link_child.",
+            "Makes two people already in the tree a couple. When the first has a family with the partner missing, the second fills it, so its children gain them as a parent; otherwise a new family is made. Gives the family's id, for add_fact (marriage) and link_child.",
             Schema.Object(
                 ("person_id", Schema.String("One partner."), true),
                 ("spouse_id", Schema.String("The other partner."), true),
@@ -322,8 +322,16 @@ public sealed partial class AssistantTools
                 }
                 var type = EnumArg(args, "couple_type", CoupleType.Spouse);
                 Family? made = null;
-                Change(() => { made = Doc.AddFamily(a, b); made.Type = type; return ""; });
-                return $"{a.DisplayName} and {b.DisplayName} are now a couple (family {made!.Id}).";
+                var before = Doc.Data.Families.Count;
+                Change(() =>
+                {
+                    made = Doc.LinkCouple(a, b);
+                    // A family filled keeps the type it had unless one is given.
+                    if (Doc.Data.Families.Count > before || args["couple_type"] is not null) made.Type = type;
+                    return "";
+                });
+                var kids = Doc.Data.Families.Count > before || made!.Children.Count == 0 ? "" : $", which already had {made.Children.Count} {(made.Children.Count == 1 ? "child" : "children")}";
+                return $"{a.DisplayName} and {b.DisplayName} are now a couple (family {made!.Id}{kids}).";
             },
             args => $"Make {NameOf(args)} and {NameOf(args, "spouse_id")} a couple."
                     + UnnamedPartnerNote(args, Doc.GetPerson(args.Str("person_id")), Doc.GetPerson(args.Str("spouse_id")))
@@ -368,9 +376,8 @@ public sealed partial class AssistantTools
                 if (f.HasPartner(p.Id))
                     return Change(() =>
                     {
+                        // DetachPartner removes the family when it is left empty.
                         Doc.DetachPartner(f, p);
-                        // A couple with one partner left, no children and no facts is no family at all (as deleting a person leaves it).
-                        if ((f.Partner1Id is null || f.Partner2Id is null) && f.Children.Count == 0 && f.Facts.Count == 0) Doc.Data.Families.Remove(f);
                         return $"{p.DisplayName} is no longer a partner in {couple}.";
                     });
                 throw new ArgumentException($"{p.DisplayName} isn't in that family.");
@@ -579,13 +586,8 @@ public sealed partial class AssistantTools
                     Doc.AddChild(into, p);
                     break;
                 case "spouse":
-                    // Reuse a single-parent family, so its children gain the new parent (as Add spouse does).
-                    into = Doc.SpouseFamilies(relative!).FirstOrDefault(f => f.Partner1Id is null || f.Partner2Id is null);
-                    if (into is not null)
-                    {
-                        if (into.Partner1Id is null) into.Partner1Id = p.Id; else into.Partner2Id = p.Id;
-                    }
-                    else into = Doc.AddFamily(relative, p);
+                    // The same rule as Add spouse: a family with a partner missing is filled, so its children gain the new parent.
+                    into = Doc.LinkCouple(relative!, p);
                     break;
                 case "sibling":
                     into = Doc.EnsureParentFamily(relative!);

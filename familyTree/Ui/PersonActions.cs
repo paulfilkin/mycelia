@@ -39,7 +39,11 @@ public static class PersonActions
         state.Select(created);
     }
 
-    public static void AddSpouse(AppState state, Person person)
+    /// <summary>
+    /// Adds a spouse.  From an Unknown spouse card, <paramref name="open"/> is that card's family and the new spouse
+    /// fills it; otherwise the first family with a partner missing is filled, or a new one made (TreeDocument.LinkCouple).
+    /// </summary>
+    public static void AddSpouse(AppState state, Person person, Family? open = null)
     {
         var sex = person.Sex switch { Sex.Male => Sex.Female, Sex.Female => Sex.Male, _ => Sex.Unknown };
         var info = Dialogs.NewPerson(state.Doc, "Add spouse", $"Spouse or partner of {person.DisplayName}", "", sex);
@@ -48,16 +52,7 @@ public static class PersonActions
         state.Doc.Change(() =>
         {
             created = Create(state.Doc, info);
-            // Reuse a single-parent family when there is one, so existing children gain the new parent.
-            var open = state.Doc.SpouseFamilies(person).FirstOrDefault(f => f.Partner1Id is null || f.Partner2Id is null);
-            if (open is not null)
-            {
-                if (open.Partner1Id is null) open.Partner1Id = created.Id; else open.Partner2Id = created.Id;
-            }
-            else
-            {
-                state.Doc.AddFamily(person, created);
-            }
+            state.Doc.LinkCouple(person, created, open);
         });
         state.Select(created);
     }
@@ -102,12 +97,13 @@ public static class PersonActions
         state.Doc.Change(() => state.Doc.SetParent(child, parent));
     }
 
-    public static void LinkExistingSpouse(AppState state, Person person)
+    /// <summary>Links someone already in the tree as a spouse, by the same rule as <see cref="AddSpouse"/>.</summary>
+    public static void LinkExistingSpouse(AppState state, Person person, Family? open = null)
     {
         var exclude = state.Doc.Spouses(person).Append(person);
         var spouse = Dialogs.PickPerson(state.Doc, "Link a spouse", $"Choose a spouse or partner for {person.DisplayName}", exclude);
         if (spouse is null) return;
-        state.Doc.Change(() => state.Doc.AddFamily(person, spouse));
+        state.Doc.Change(() => state.Doc.LinkCouple(person, spouse, open));
     }
 
     public static void LinkExistingChild(AppState state, Person parent, Family? family)
