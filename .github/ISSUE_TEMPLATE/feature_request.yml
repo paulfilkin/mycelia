@@ -1,0 +1,21 @@
+name: Feature request
+description: Something Mycelia could do, or do better.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you want to do
+      description: The task you're trying to get done, rather than the feature you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Optional.  How you picture it, and anything you've seen elsewhere that does it well.
+  - type: textarea
+    id: now
+    attributes:
+      label: What you do now
+      description: Optional.  How you manage without it.

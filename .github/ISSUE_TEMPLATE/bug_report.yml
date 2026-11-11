@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in Mycelia doesn't work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting this.  Please don't include real people's details, API keys or a tree with living people.  Security problems go through Security > Report a vulnerability instead.
+  - type: input
+    id: version
+    attributes:
+      label: Mycelia version
+      description: Options › Updates shows it, or the commit you built.
+      placeholder: 0.2.0
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options:
+        - People, Person view or the person panel
+        - Places, Sources or Media
+        - Charts
+        - Tools
+        - GEDCOM import or export
+        - Opening, saving, backup or merging trees
+        - The Assistant
+        - MCP servers or the MCP Helper
+        - Other programs (Mycelia as an MCP server)
+        - Updates or the installer
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you did
+      description: The steps, one per line, starting from opening the program.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Any message word for word.  A screenshot helps.
+    validations:
+      required: true
+  - type: textarea
+    id: files
+    attributes:
+      label: Files
+      description: For GEDCOM problems, attach the smallest file that shows it, with invented people.

@@ -1,0 +1,153 @@
+<UserControl x:Class="Mycelia.Ui.Views.PeopleView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:Mycelia.Ui">
+    <UserControl.Resources>
+        <ui:SexBrushConverter x:Key="SexBrush" />
+        <ui:EmptyToCollapsedConverter x:Key="EmptyCollapsed" />
+    </UserControl.Resources>
+    <DockPanel Margin="12">
+    <!-- Tree and Person views of the People workspace. -->
+    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+        <TextBlock x:Name="ViewHint" DockPanel.Dock="Right" Style="{StaticResource Caption}" VerticalAlignment="Center"
+                   Text="Double-click anyone on the tree to centre it on them; F3 opens their Person view" />
+        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="2" HorizontalAlignment="Left">
+            <StackPanel Orientation="Horizontal">
+                <RadioButton x:Name="ViewTree" Style="{StaticResource Segment}" GroupName="peopleView" IsChecked="True" Checked="OnViewChanged">
+                    <StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource I.Tree}" Width="15" Height="15" /><TextBlock Text="Tree" Margin="6,0,0,0" /></StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="ViewPerson" Style="{StaticResource Segment}" GroupName="peopleView" Checked="OnViewChanged">
+                    <StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource I.Person}" Width="15" Height="15" /><TextBlock Text="Person" Margin="6,0,0,0" /></StackPanel>
+                </RadioButton>
+            </StackPanel>
+        </Border>
+    </DockPanel>
+    <Grid>
+    <ContentControl x:Name="PersonHost" Visibility="Collapsed" Panel.ZIndex="1" />
+    <!-- The Tree view's three panels, each foldable to a strip (FoldLayout, TDD 16.1). -->
+    <ui:FoldLayout x:Name="TreeLayout" LayoutKey="People">
+
+        <!-- Index of people -->
+        <ui:FoldPanel Key="Index" Title="People" Icon="People" Side="Left" Size="290" MinSize="230">
+            <ui:FoldPanel.HeaderTools>
+                <TextBlock x:Name="IndexCount" Style="{StaticResource Caption}" Margin="0,0,6,0" />
+            </ui:FoldPanel.HeaderTools>
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="16,12,16,8">
+                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="2" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="ListAll" Style="{StaticResource Segment}" GroupName="indexList" IsChecked="True" Checked="OnListChanged" Content="Index" ToolTip="Everyone in the tree" />
+                            <RadioButton x:Name="ListHistory" Style="{StaticResource Segment}" GroupName="indexList" Checked="OnListChanged" Content="History" ToolTip="People you have looked at, kept with the tree" />
+                            <RadioButton x:Name="ListBookmarks" Style="{StaticResource Segment}" GroupName="indexList" Checked="OnListChanged" Content="Bookmarks" ToolTip="People you have bookmarked (Ctrl+Shift+B), kept with the tree" />
+                        </StackPanel>
+                    </Border>
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock Text="Sort" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ComboBox x:Name="SortBox" SelectionChanged="OnSortChanged">
+                            <ComboBoxItem Content="Surname, given names" IsSelected="True" />
+                            <ComboBoxItem Content="Given names, surname" />
+                            <ComboBoxItem Content="Birth date" />
+                            <ComboBoxItem Content="Marriage date" />
+                            <ComboBoxItem Content="Death date" />
+                        </ComboBox>
+                    </DockPanel>
+                    <Grid Margin="0,10,0,0">
+                        <TextBox x:Name="SearchBox" Padding="30,6,8,6" TextChanged="OnSearchChanged" ToolTip="Search by name, year or place" />
+                        <Path Style="{StaticResource Icon}" Data="{StaticResource I.Search}" Width="15" Height="15" Margin="10,0,0,0"
+                              HorizontalAlignment="Left" IsHitTestVisible="False" TextElement.Foreground="{StaticResource Subtle}" />
+                    </Grid>
+                </StackPanel>
+                <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="12,10">
+                    <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Stretch" Click="OnAddUnrelated">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource Icon}" Data="{StaticResource I.Plus}" Width="15" Height="15" />
+                            <TextBlock Text="Add person" Margin="7,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </Border>
+                <ListBox x:Name="IndexList" Style="{StaticResource PlainList}" Padding="8,0,8,8" SelectionChanged="OnIndexSelection" MouseDoubleClick="OnIndexDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="32" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid Width="30" Height="30">
+                                    <Ellipse Fill="{Binding Sex, Converter={StaticResource SexBrush}, ConverterParameter=soft}" />
+                                    <TextBlock Text="{Binding Initials}" Foreground="{Binding Sex, Converter={StaticResource SexBrush}}" FontSize="11" FontWeight="SemiBold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Grid>
+                                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding IndexName}" TextTrimming="CharacterEllipsis" FontWeight="Medium" />
+                                    <TextBlock Text="{Binding LifeSpan}" Style="{StaticResource Caption}"
+                                               Visibility="{Binding LifeSpan, Converter={StaticResource EmptyCollapsed}}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </ui:FoldPanel>
+
+        <!-- Tree -->
+        <ui:FoldPanel Key="Tree" Title="Tree" Icon="Tree" Side="Left" Size="*" MinSize="320">
+            <ui:FoldPanel.HeaderTools>
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource IconButton}" ToolTip="Zoom out" Click="OnZoomOut">
+                        <Path Style="{StaticResource Icon}" Data="{StaticResource I.ZoomOut}" />
+                    </Button>
+                    <TextBlock x:Name="ZoomText" Text="100%" Style="{StaticResource Caption}" Width="40" TextAlignment="Center" VerticalAlignment="Center"
+                               Cursor="Hand" MouseLeftButtonUp="OnZoomTextClick" />
+                    <Button Style="{StaticResource IconButton}" ToolTip="Zoom in" Click="OnZoomIn">
+                        <Path Style="{StaticResource Icon}" Data="{StaticResource I.ZoomIn}" />
+                    </Button>
+                    <Button Style="{StaticResource IconButton}" ToolTip="Centre the tree on the home person" Click="OnGoHome">
+                        <Path Style="{StaticResource Icon}" Data="{StaticResource I.Home}" />
+                    </Button>
+                </StackPanel>
+            </ui:FoldPanel.HeaderTools>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Border BorderBrush="{StaticResource Border}" BorderThickness="0,0,0,1" Padding="14,8">
+                    <Border Background="{StaticResource SurfaceAlt}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="8" Padding="2" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="ModePedigree" Style="{StaticResource Segment}" GroupName="treeMode" IsChecked="True" Checked="OnModeChanged">
+                                <StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource I.Pedigree}" Width="15" Height="15" /><TextBlock Text="Pedigree" Margin="6,0,0,0" /></StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="ModeFamily" Style="{StaticResource Segment}" GroupName="treeMode" Checked="OnModeChanged">
+                                <StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource I.Family}" Width="15" Height="15" /><TextBlock Text="Family" Margin="6,0,0,0" /></StackPanel>
+                            </RadioButton>
+                            <RadioButton x:Name="ModeDescendants" Style="{StaticResource Segment}" GroupName="treeMode" Checked="OnModeChanged">
+                                <StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource I.Descendants}" Width="15" Height="15" /><TextBlock Text="Descendants" Margin="6,0,0,0" /></StackPanel>
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
+                </Border>
+
+                <ScrollViewer x:Name="TreeScroll" Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="OnTreeWheel" SizeChanged="OnTreeSizeChanged" Background="{StaticResource SurfaceAlt}">
+                    <Canvas x:Name="TreeCanvas" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Canvas.LayoutTransform>
+                            <ScaleTransform x:Name="TreeScale" ScaleX="1" ScaleY="1" />
+                        </Canvas.LayoutTransform>
+                    </Canvas>
+                </ScrollViewer>
+
+                <Border x:Name="FamilyStrip" Grid.Row="2" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0" Padding="14,10,14,12" />
+            </Grid>
+        </ui:FoldPanel>
+
+        <!-- Editor -->
+        <ui:FoldPanel Key="Person" Title="Person" Icon="Person" Side="Right" Size="400" MinSize="350">
+            <ContentControl x:Name="EditorHost" />
+        </ui:FoldPanel>
+    </ui:FoldLayout>
+    </Grid>
+    </DockPanel>
+</UserControl>

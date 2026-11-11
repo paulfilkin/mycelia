@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Mycelia</AssemblyName>
+    <RootNamespace>Mycelia</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The logo drawing in Ui/Theme.xaml at 16 to 256 pixels (tools/make-icon.ps1). -->
+    <ApplicationIcon>Resources\Mycelia.ico</ApplicationIcon>
+    <Product>Mycelia</Product>
+    <Version>0.2.0</Version>
+    <!-- The informational version is the plain <Version> (no +commit hash): the update check compares it with the server's. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- The Fluent theme is still flagged as experimental in WPF. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="shots\**" />
+    <Compile Remove="shots\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Inter and Space Grotesk, built into the program (Ui/Theme.xaml); the SIL Open Font License asks that each
+         licence goes with its font, so the two OFL files are copied beside the program and into the installer. -->
+    <Resource Include="Resources\Fonts\*.ttf" />
+    <None Update="Resources\Fonts\*.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The genealogy resources list, read as it is by the Assistant's suggest_resources (TDD 25.3). -->
+    <EmbeddedResource Include="..\Docs\Resources\genealogy-resources.md" LogicalName="Mycelia.genealogy-resources.md" Link="Resources\genealogy-resources.md" />
+  </ItemGroup>
+
+</Project>

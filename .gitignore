@@ -1,0 +1,63 @@
+# Window pictures the app writes in --screenshot mode for checks.
+/familyTree/shots/
+
+# Shipped installers and their zips.  Kept on disk, not in the repository.
+Releases/
+
+# Local working folders: sample trees and scratch test material.
+FILES/
+TEST/
+
+## Build results
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]64/
+artifacts/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.VC.db
+*.VC.VC.opendb
+.vscode/
+
+## NuGet
+*.nupkg
+packages/
+!packages/build/
+project.lock.json
+project.assets.json
+*.nuget.props
+*.nuget.targets
+
+## Publish output
+publish/
+*.[Pp]ublish.xml
+*.pubxml.user
+*.azurePubxml
+
+## Windows and editor detritus
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+*.swp
+*.bak
+*.tmp
+
+## Crash-dump folders Windows error reporting drops next to whatever crashed.
+ErrorReports/
+*.dmp
