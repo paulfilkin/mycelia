@@ -3,7 +3,10 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
-## Unreleased
+## 0.3.0 - unreleased
+
+Relationships made easier to get right, and the Assistant's research and citations corrected after
+using it on a real tree.
 
 ### New
 
@@ -20,14 +23,12 @@ understand what changed without reading the diff.
   children.
 - **Half-siblings in the Family tab.**  The Siblings list now includes the children of each
   parent's other families, described as half-brothers and half-sisters.
-
 - **Preferred parents.**  Someone with more than one set of parents, such as birth parents and
   adoptive parents, can have one set chosen as preferred with Make preferred in the Family tab.
   The tree, the charts, the family strip, the Person view and the data checks show those parents.
   Before, whichever set was recorded first was always used, with no way to change it.  The
   Assistant can see and set the choice.  It is kept when people are merged and when another tree
   is merged in, and GEDCOM export writes the preferred parents first so they come back the same.
-
 - **The Assistant answers questions about Mycelia from its help.**  Ask "Where do I see a fact's
   citations?" and it reads the help pages, now built into the program, and names the panels and
   buttons they name.  Before, it could only guess, and described screens Mycelia doesn't have.
@@ -70,6 +71,17 @@ understand what changed without reading the diff.
     family moves the child into that couple's family, instead of recording the couple twice.
 - **Asked to find something, the Assistant searches** without first asking whether it may.  Sites
   that aren't on its list still ask before they are read.
+
+### Internal
+
+- The design record is now `TDD_Mycelia_v0_3_0.md`, copied from the 0.2.0 one; the earlier file
+  stays as the record of that version.
+- `TreeDocument` holds the linking rules every action uses (`LinkCouple`, `SetParent`,
+  `RemoveIfEmpty`); `Person.PreferredParentsId` is a new field, left out of the file while empty,
+  so older copies of Mycelia still open trees saved by this one.
+- `PersonMerge.CombineFamilies`, `TreeDocument.HalfSiblings` and `Person.IsUnnamed` are new;
+  the Assistant has 65 tools (`read_help` and `combine_families` added).
+- Releases are made with multifariousRelease, the publisher's release program (TDD 20).
 
 ## 0.2.0 - 11 November 2026
 

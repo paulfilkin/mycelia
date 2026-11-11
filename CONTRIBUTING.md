@@ -16,7 +16,7 @@ Security problems go through a private report instead (see `SECURITY.md`).
 For anything larger than a small fix, open an issue first and describe what you intend to change.
 That avoids work on something that won't fit.
 
-Read `Docs/Design/TDD_Mycelia_v0_2_0.md`, the design record, before changing anything structural.
+Read `Docs/Design/TDD_Mycelia_v0_3_0.md`, the design record, before changing anything structural.
 `CLAUDE.md` lists the parts of the code that are easy to get wrong (undo replaces every object,
 dates are kept as text, theme resources are looked up by name at run time, and more); it is
 written for Claude Code but reads as a guide for anyone.

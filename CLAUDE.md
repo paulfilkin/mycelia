@@ -9,7 +9,7 @@ programs; the conventions it follows (date formats, relationship wording, data-c
 index sorting, history) and how it differs are in `Docs/Design/Design_Considerations.md`.  Its
 code, data model, file format and graphics are its own.
 
-Read `Docs/Design/TDD_Mycelia_v0_2_0.md` before changing anything structural.  It is the
+Read `Docs/Design/TDD_Mycelia_v0_3_0.md` before changing anything structural.  It is the
 design record: the data model, the file format, undo, GEDCOM, kinship, the data checks and every
 workspace.  A `CLAUDE.local.md` beside this file, where there is one, adds instructions for that
 computer.
@@ -83,8 +83,8 @@ Claude Desktop starts (TDD 24).  Without a path it opens the most recent tree, o
 There is no test project.  Verification means running the application, and for GEDCOM, importing
 a file, exporting it again and comparing.
 
-The version is the `<Version>` line in `familyTree/Mycelia.csproj`, currently 0.2.0,
-unreleased (0.1.0 was never released either); it is also on four lines of
+The version is the `<Version>` line in `familyTree/Mycelia.csproj`, currently 0.3.0 (0.2.0 was
+the first release; 0.1.0 was never released); it is also on four lines of
 `familyTree/Mycelia.iss`.  The installer is built with:
 
 ```
@@ -92,14 +92,16 @@ dotnet publish familyTree/Mycelia.csproj -c Release -r win-x64 --self-contained 
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" familyTree\Mycelia.iss
 ```
 
-Releasing a version (signing, the WordPress plugin, publishing) is in TDD section 20; how the
-program updates itself is section 23.
+Versions are released with multifariousRelease, the publisher's release program, which bumps the
+version lines, commits, builds, signs, publishes to the WordPress plugin and GitHub, and tags.
+Before it runs, the changelog needs a `## <version> - unreleased` section and every other change
+must be committed (TDD section 20); how the program updates itself is section 23.
 
 ## Documentation map
 
 | Document | What it is authoritative for |
 | --- | --- |
-| `Docs/Design/TDD_Mycelia_v0_2_0.md` | The design record: model, file format, undo, dates, GEDCOM, kinship, data checks, every workspace, the Assistant and MCP client, key decisions, what is not built |
+| `Docs/Design/TDD_Mycelia_v0_3_0.md` | The design record: model, file format, undo, dates, GEDCOM, kinship, data checks, every workspace, the Assistant and MCP client, key decisions, what is not built |
 | `Docs/Design/Design_Considerations.md` | What Mycelia is for, where it feels familiar and where it differs, and the conventions it follows (dates, names, relationship wording, data checks, sorting, shortcuts), by the section names the code cites |
 | `Docs/Help/` | The user help: one page per subject, read on GitHub and opened by F1 (TDD 28) |
 | `Docs/CHANGELOG_Mycelia.md` | What changed in each version, user-visible and internal |

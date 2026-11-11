@@ -2,7 +2,7 @@
 
 What Mycelia is for, where it will feel familiar, where it is different, and the conventions it
 follows for dates, names, relationships, data checks and sorting.  How it is built is in the
-design record, `TDD_Mycelia_v0_2_0.md`.  Code that follows one of the conventions below names its
+design record, `TDD_Mycelia_v0_3_0.md`.  Code that follows one of the conventions below names its
 section here ("Design considerations, Dates").
 
 ## Familiar ground
