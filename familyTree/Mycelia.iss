@@ -12,9 +12,9 @@
 [Setup]
 ; Basic information
 AppName=Mycelia
-AppVersion=0.2.0
-AppVerName=Mycelia 0.2.0
-VersionInfoVersion=0.2.0.0
+AppVersion=0.3.0
+AppVerName=Mycelia 0.3.0
+VersionInfoVersion=0.3.0.0
 VersionInfoDescription=Mycelia: family trees, connected to their sources.
 AppComments=Family trees, connected to their sources.
 AppPublisher=multifarious
@@ -28,7 +28,7 @@ UninstallDisplayIcon={app}\Mycelia.exe
 Compression=lzma2
 SolidCompression=yes
 OutputDir=..\Releases
-OutputBaseFilename=MyceliaSetup-0.2.0
+OutputBaseFilename=MyceliaSetup-0.3.0
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0

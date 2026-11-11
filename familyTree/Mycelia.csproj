@@ -13,7 +13,7 @@
     <!-- The logo drawing in Ui/Theme.xaml at 16 to 256 pixels (tools/make-icon.ps1). -->
     <ApplicationIcon>Resources\Mycelia.ico</ApplicationIcon>
     <Product>Mycelia</Product>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <!-- The informational version is the plain <Version> (no +commit hash): the update check compares it with the server's. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <!-- The Fluent theme is still flagged as experimental in WPF. -->
