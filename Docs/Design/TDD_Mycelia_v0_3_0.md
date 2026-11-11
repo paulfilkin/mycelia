@@ -1150,8 +1150,8 @@ product's update key instead (section 23).
 
 **Releasing a version** goes through multifariousRelease, the publisher's release program on the
 publisher's computer, which holds a Mycelia profile (slug `mycelia`, this repository, GitHub
-`paulfilkin/mycelia`) and the path of the update key.  0.2.0 was released by hand; 0.3.0 is the
-first release made with it.  Before starting:
+`paulfilkin/mycelia`) and the path of the update key.  0.2.0 and 0.3.0 were released with it.
+Before starting:
 
 - The changelog has a section headed `## <version> - unreleased` (the program finds the section by
   `## <version>` followed by a space, and Mark released today... dates the heading).  Its
@@ -1672,7 +1672,14 @@ stand-in server on this computer, a stable and a beta release signed by the plug
 required and up-to-date answers, 404, a tampered file refused and deleted, an unknown key refused, a
 signature from another key refused, an answer for another product refused, a download from another
 host refused; and the live endpoint reachable, answering "no release" as nothing is published yet.
-Not yet run: a real published release, its download, the silent install and the restart.
+
+**First real update** (0.2.0 to 0.3.0, 11 November 2026).  0.3.0 was released through
+multifariousRelease on the stable channel (section 20): `MyceliaSetup-0.3.0.exe`, 46,973,292 bytes,
+SHA-256 `a724d5a85760ad0d7b7844c7d5095964a0b9cce9b5f4ed28466be3803c66cfcb`, the same file on GitHub
+(release `v0.3.0` on the build commit) and in WordPress, and the final check of the public answer
+passed.  A copy of 0.2.0 installed on the publisher's computer, first installed under the old name,
+was offered it, downloaded and verified it, installed it silently into its existing folder and
+started again as 0.3.0: the whole flow above worked end to end.
 
 ---
 
@@ -2114,6 +2121,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 12 November 2026 | 0.3.0 | The first real update, 0.2.0 to 0.3.0 through the published release, worked end to end (23). |
 | 11 November 2026 | 0.3.0 | Releases go through multifariousRelease (20); this design record copied from `TDD_Mycelia_v0_2_0.md` for 0.3.0. |
 | 11 November 2026 | 0.3.0 | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2).  Linking rules shared by the program and the Assistant (7): `LinkCouple`, `SetParent` moving a child into an existing couple, `RemoveIfEmpty` for `DetachPartner` too; the Unknown spouse card's buttons fill that card (15.2); `link_spouse` fills a family with a partner missing (22.3).  Preferred parents: `Person.PreferredParentsId` (5, 6), `ParentFamilies` lists them first (7), kept through detaching, moving and merging (7, 7.1, 7.2), the first `FAMC` in GEDCOM (11), Make preferred in the Family tab (15.2), `get_person` and `update_person` (22.3).  Combining two families (`PersonMerge.CombineFamilies`, 7.1; Combine with... 15.2; `combine_families` 22.3 and 24, 65 tools), relationship checks (13), `Person.IsUnnamed` and Make unknown spouse (15.2), `HalfSiblings` (7, 15.2). |
 | 11 November 2026 | 0.2.0 | Moving the pedigree up and down (15.2): the end cards' arrow is a button, a down button lists the focus person's children, and a double-click on the tree centres it without opening the Person view. |
