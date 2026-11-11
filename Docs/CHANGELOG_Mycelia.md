@@ -3,7 +3,7 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
-## 0.2.0 - unreleased (in progress, 10 November 2026)
+## 0.2.0 - 11 November 2026
 
 The Assistant, built in steps: the conversation and the connection to MCP servers, then the tools
 that read and change the tree, then those tools for other programs, then research: web addresses
