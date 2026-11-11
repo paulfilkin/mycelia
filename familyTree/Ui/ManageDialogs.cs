@@ -535,4 +535,102 @@ public static partial class Dialogs
         if (!Run(w, "Convert names", "Convert all names to mixed case, or mixed case with the surname in capitals.", body, "Convert")) return null;
         return caps.IsChecked == true;
     }
+
+    // ---------------------------------------------------------------- gather media
+
+    /// <summary>
+    /// Media > Gather media: copies every linked file into one folder (the tree's media folder unless
+    /// another is chosen) and points the tree at the copies as one undo step.  The originals stay.
+    /// </summary>
+    public static void GatherMedia(AppState state)
+    {
+        const string title = "Gather media";
+        if (state.Doc.Data.Media.Count == 0)
+        {
+            MessageBox.Show(Application.Current.MainWindow, "This tree has no media yet.", title, MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var w = MakeWindow(title, 560);
+        var body = new StackPanel();
+        body.Children.Add(new TextBlock { Text = "Folder", Style = UiKit.Res<Style>("FieldLabel") });
+        var row = new DockPanel();
+        var change = new Button { Style = UiKit.Res<Style>("SecondaryButton"), Content = "Change...", Margin = new Thickness(8, 0, 0, 0) };
+        DockPanel.SetDock(change, Dock.Right);
+        row.Children.Add(change);
+        var box = new TextBox { Text = state.Doc.MediaFolder ?? "" };
+        row.Children.Add(box);
+        body.Children.Add(row);
+        var summary = UiKit.Text("");
+        summary.TextWrapping = TextWrapping.Wrap;
+        summary.TextTrimming = TextTrimming.None;
+        summary.Margin = new Thickness(0, 14, 0, 0);
+        body.Children.Add(summary);
+        body.Children.Add(Note("The originals are left where they are.  A name already in the folder is copied as \"name (2)\" and so on, so nothing there is overwritten.  Undo points the tree back at the originals and leaves the copies in the folder."));
+
+        TreeImport.GatherPlan? plan = null;
+        void Update()
+        {
+            plan = null;
+            var folder = box.Text.Trim();
+            if (folder.Length == 0) { summary.Text = "Choose the folder to gather the media into."; return; }
+            if (!Path.IsPathFullyQualified(folder)) { summary.Text = "Give the full path of a folder, starting with a drive letter or \\\\server."; return; }
+            try { plan = TreeImport.PlanGather(state.Doc, folder); }
+            catch (Exception) { summary.Text = "That is not a folder path."; return; }
+            var parts = new List<string> { plan.ToCopy.Count == 1 ? "1 file to copy." : $"{plan.ToCopy.Count} files to copy." };
+            if (plan.AlreadyThere > 0) parts.Add(plan.AlreadyThere == 1 ? "1 item is already in this folder." : $"{plan.AlreadyThere} items are already in this folder.");
+            if (plan.Missing.Count > 0) parts.Add(plan.Missing.Count == 1 ? "1 file cannot be found and stays linked where it is." : $"{plan.Missing.Count} files cannot be found and stay linked where they are.");
+            summary.Text = string.Join("  ", parts);
+        }
+        box.TextChanged += (_, _) => Update();
+        change.Click += (_, _) =>
+        {
+            var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Choose the folder to gather the media into" };
+            if (Directory.Exists(box.Text.Trim())) dlg.InitialDirectory = box.Text.Trim();
+            if (dlg.ShowDialog(w) == true) box.Text = dlg.FolderName;
+        };
+        Update();
+
+        // The copy runs off the UI thread with the window disabled; the tree is only changed after it.
+        var busy = false;
+        Dictionary<string, string>? copies = null;
+        w.Closing += (_, e) => e.Cancel = busy;
+        async void Copy(TreeImport.GatherPlan p)
+        {
+            busy = true;
+            var content = (UIElement)w.Content;
+            content.IsEnabled = false;
+            var progress = new Progress<int>(n => summary.Text = $"Copying {n} of {p.ToCopy.Count}...");
+            try { copies = await Task.Run(() => TreeImport.CopyForGather(p, progress)); }
+            catch (Exception ex)
+            {
+                busy = false;
+                content.IsEnabled = true;
+                Update();
+                MessageBox.Show(w, $"The files could not be copied, so nothing has changed.\n\n{ex.Message}", title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            busy = false;
+            w.DialogResult = true;
+        }
+        bool Start()
+        {
+            Update();
+            if (plan is null) return false;
+            if (plan.ToCopy.Count == 0)
+            {
+                MessageBox.Show(w, "There is nothing to copy: every file is in that folder already or cannot be found.", title, MessageBoxButton.OK, MessageBoxImage.Information);
+                return false;
+            }
+            Copy(plan);
+            return false;
+        }
+        if (!Run(w, title, "Copy every linked file into one folder and point the tree at the copies.", body, "Copy and relink", Start, box) || copies is null || plan is null) return;
+
+        var changed = 0;
+        state.Doc.Change(() => changed = TreeImport.RelinkGathered(state.Doc, copies));
+        var text = $"{(changed == 1 ? "1 media item now points" : $"{changed} media items now point")} at {(copies.Count == 1 ? "its copy" : "copies")} in {plan.Folder.TrimEnd(Path.DirectorySeparatorChar)}.  The originals have not been moved or deleted.";
+        if (plan.Missing.Count > 0)
+            text += $"\n\n{plan.Missing.Count} media files could not be found and are still linked where they were:\n" + string.Join("\n", plan.Missing.Take(8)) + (plan.Missing.Count > 8 ? "\n..." : "");
+        MessageBox.Show(Application.Current.MainWindow, text, title, MessageBoxButton.OK, plan.Missing.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+    }
 }

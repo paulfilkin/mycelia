@@ -13,6 +13,9 @@ public sealed class MediaView : MasterDetail
     public MediaView() : base("Media", "Image", "Media item")
     {
         FooterButtons.Children.Add(UiKit.Button("SecondaryButton", "Add media", (_, _) => AddMedia(), "Plus"));
+        var gather = UiKit.Button("SecondaryButton", "Gather media...", (_, _) => Dialogs.GatherMedia(State!), "Copy");
+        gather.Margin = new Thickness(8, 0, 0, 0);
+        FooterButtons.Children.Add(gather);
     }
 
     private TreeDocument Doc => State!.Doc;

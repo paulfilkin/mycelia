@@ -231,7 +231,8 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
             Item("Export a branch...", null, () => ExportGedcom(branch: true)),
             new Separator(),
             Item("Back up with media...", null, BackupTree),
-            Item("Restore a backup...", null, RestoreBackup)));
+            Item("Restore a backup...", null, RestoreBackup),
+            Item("Gather media...", null, () => Dialogs.GatherMedia(_state))));
         menu.Items.Add(Sub("Edit", "Edit",
             Item("Find and replace...", null, () => Dialogs.FindAndReplace(_state), "Ctrl+F"),
             new Separator(),

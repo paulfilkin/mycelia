@@ -237,6 +237,81 @@ public static class TreeImport
         return path;
     }
 
+    // ---------------------------------------------------------------- gathering media
+
+    /// <summary>
+    /// What Gather media would do with a folder: the files to copy (each once, however many items
+    /// link to it), how many items are already inside the folder, and the files that cannot be found.
+    /// </summary>
+    public sealed record GatherPlan(string Folder, List<string> ToCopy, int AlreadyThere, List<string> Missing);
+
+    /// <summary>Looks at every media item against <paramref name="folder"/>; reads the disk but changes nothing.</summary>
+    public static GatherPlan PlanGather(TreeDocument doc, string folder)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder)) + Path.DirectorySeparatorChar;
+        var toCopy = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var missing = new List<string>();
+        var already = 0;
+        foreach (var m in doc.Data.Media)
+        {
+            string full;
+            try { full = Path.GetFullPath(m.FilePath); }
+            catch (Exception) { missing.Add(m.FilePath); continue; }
+            if (!File.Exists(full)) { missing.Add(m.FilePath); continue; }
+            if (full.StartsWith(root, StringComparison.OrdinalIgnoreCase)) { already++; continue; }
+            if (seen.Add(full)) toCopy.Add(full);
+        }
+        return new GatherPlan(root, toCopy, already, missing);
+    }
+
+    /// <summary>
+    /// Copies the plan's files into its folder (made if need be), never overwriting: a name already
+    /// there gets " (2)" and so on.  Returns each original path with its copy.  If any copy fails,
+    /// the copies made by this call are deleted and the error is thrown, so nothing is left half done.
+    /// Touches no tree data, so it may run off the UI thread.
+    /// </summary>
+    public static Dictionary<string, string> CopyForGather(GatherPlan plan, IProgress<int>? progress = null)
+    {
+        var copies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            Directory.CreateDirectory(plan.Folder);
+            foreach (var source in plan.ToCopy)
+            {
+                var target = UnusedPath(Path.Combine(plan.Folder, Path.GetFileName(source)));
+                File.Copy(source, target, overwrite: false);
+                copies[source] = target;
+                if (new FileInfo(target).Length != new FileInfo(source).Length)
+                    throw new IOException($"The copy of {source} is not the same size as the original.");
+                progress?.Report(copies.Count);
+            }
+        }
+        catch
+        {
+            foreach (var made in copies.Values)
+                try { File.Delete(made); } catch (Exception) { /* left behind; nothing links to it */ }
+            throw;
+        }
+        return copies;
+    }
+
+    /// <summary>Points each media item whose file was copied at its copy.  Run inside <see cref="TreeDocument.Change"/>.  Returns the items changed.</summary>
+    public static int RelinkGathered(TreeDocument doc, IReadOnlyDictionary<string, string> copies)
+    {
+        var changed = 0;
+        foreach (var m in doc.Data.Media)
+        {
+            string full;
+            try { full = Path.GetFullPath(m.FilePath); }
+            catch (Exception) { continue; }
+            if (!copies.TryGetValue(full, out var copy)) continue;
+            m.FilePath = copy;
+            changed++;
+        }
+        return changed;
+    }
+
     /// <summary>The path itself when nothing is there, else "name (2).ext", "name (3).ext" and so on.</summary>
     private static string UnusedPath(string path)
     {

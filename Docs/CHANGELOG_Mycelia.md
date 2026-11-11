@@ -85,6 +85,13 @@ on sources and citations and downloading records come first, finding and reading
   ("Ashworth media"), and adds it as a media item linked to the people it is about.  It asks
   first, never overwrites a file, and tells you when the address gave a sign-in page instead of the
   record.  The tree must have been saved once.
+- **Gather media into one folder.**  Gather media... (at the foot of the Media list, and in Main
+  menu > Import and export) copies every file the tree links to into one folder, the tree's media
+  folder unless you choose another, and points the tree at the copies.  It is for a tree whose
+  pictures are spread across several folders, such as one imported from GEDCOM, so they can be kept
+  and backed up in one place.  The originals are not moved or deleted, nothing in the folder is
+  overwritten (a second "census.jpg" becomes "census (2).jpg"), files that can't be found are
+  listed and left as they were, and Undo points the tree back at the originals.
 - **The Assistant knows where to look.**  A list of over a hundred genealogy websites and
   archives worldwide is built in.  The Assistant uses it to suggest where to search for a country
   and a kind of record, with each site's cost and whether it can be searched automatically.

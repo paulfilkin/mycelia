@@ -348,6 +348,29 @@ there, and the tree is saved as `<folder>\<name>.ftree` (with " (2)" and so on w
 taken) and opened.  The restored tree is written directly as JSON, not through a `TreeDocument`,
 so the open tree's fact types are not replaced before it is opened.
 
+**Gather media** (Gather media..., in the Media list's footer and Import and export;
+`Dialogs.GatherMedia` in `ManageDialogs.cs`) copies every linked file into one folder and points
+the tree at the copies.  The folder starts as `TreeDocument.MediaFolder` (empty for a tree never
+saved), can be typed or pasted, or chosen with `OpenFolderDialog`, and is made if missing.  Three
+steps in `TreeImport`:
+
+- `PlanGather(doc, folder)` reads the disk and changes nothing: the distinct full paths to copy
+  (two items linking to one file give one copy), the items already inside the folder (any depth,
+  left alone), and the paths that cannot be found or are not valid paths (left alone and listed).
+  The window shows these counts as the folder is typed, and plans again when Copy and relink is
+  pressed.
+- `CopyForGather(plan, progress)` runs off the UI thread with the window disabled and its closing
+  refused.  Each file goes into the folder by its own name, flat, never overwriting (`UnusedPath`,
+  as Restore: "name (2).jpg" and so on), and is checked for the same length as the original.  If
+  any copy fails, the copies this call made are deleted and the error shown; the tree is not
+  touched.
+- `RelinkGathered(doc, copies)` then changes each item whose full path was copied, inside one
+  `Change` on the UI thread, matching by path so it is safe after any undo.
+
+The originals are never moved or deleted: a delete cannot be undone, so Undo, which puts the old
+paths back, would point at files that are gone.  Undo leaves the copies in the folder, as
+`download_file` does.  Paths stay absolute (section 19).
+
 ### 7.3 Tree tools
 
 `TreeTools` (`Model/TreeTools.cs`), each run inside one `Change` from the main menu.
@@ -630,7 +653,7 @@ below 1140 px the workspace tabs do too (each tab has its name as a tooltip).  I
 
 The main menu: New tree, Open..., Save, Save as...; *Import and export* (Import GEDCOM..., Merge
 another tree into this one..., Export GEDCOM..., Export a branch..., Back up with media...,
-Restore a backup...); *Edit* (Find and replace..., Manage fact types..., Relationships...,
+Restore a backup..., Gather media...); *Edit* (Find and replace..., Manage fact types..., Relationships...,
 Historical events...); *Person* (Back, Forward, Go to home person, Make home person, Add or Remove bookmark, Set
 spouse order..., Merge two people..., Delete <selected>...); *Tools* (Find duplicate people...,
 Sort all children by birth..., Convert names..., Check for updates..., Options...); *Help* (Help
@@ -836,7 +859,7 @@ or Media item, the rest, at least 360).  The list keeps its selection across ref
   DPI), Open file, Find file... (relink), Remove from tree (the file is not deleted), caption,
   date, category, description, the path, the people in the item with a Portrait check box and an
   unlink button, and Link a person.  Footer: Add media (several files at once; duplicates by path
-  are skipped).
+  are skipped) and Gather media... (section 7.2).
 
 ### 15.4 Charts
 
@@ -1008,10 +1031,11 @@ Known gaps in this build, including things other genealogy programs have:
   one `PUBL` line; import puts `PUBL` into the publisher.
 - **No automatic backup on save;** File > Back up with media is by
   hand.
-- **Media are not copied** into a folder beside the tree, so a tree moved to another computer
-  loses its pictures until each is relinked, unless it is moved as a backup (section 7.2).  Only
-  records the Assistant downloads land in the tree's media folder (section 25); paths are still
-  absolute.
+- **Media are not copied** into a folder beside the tree when they are added, so a tree moved to
+  another computer loses its pictures until each is relinked, unless it is moved as a backup
+  (section 7.2).  Records the Assistant downloads land in the tree's media folder (section 25), and
+  Gather media copies the rest there or to another folder by hand (section 7.2); paths are still
+  absolute, so moving that folder breaks the links too.
 - **Reports** other than the four charts, a map with pins (Places opens the browser instead), LDS
   ordinance facts, and web search, publishing and sync with an online service are not built and,
   apart from reports, not planned.
@@ -1674,7 +1698,8 @@ built the same day, says where to look and reads the open archives.  Slice C fol
 ### 25.2 The media folder and `download_file`
 
 - **The media folder** is `TreeDocument.MediaFolder`: `<tree name> media` beside the tree file, for
-  a tree saved at least once; null for one never saved.  It is made on the first download.  Media
+  a tree saved at least once; null for one never saved.  It is made on the first download, or by
+  Gather media (section 7.2), which offers it as the folder to gather into.  Media
   items still hold absolute paths (section 19), so moving the tree and its folder together still
   needs Find file... or a backup.
 - **`download_file`** (Files, Ask by default, `AssistantTools.Files.cs`): a web address, an
@@ -1991,4 +2016,5 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | 11 November 2026 | 0.2.0 | The tree tools (22.3, 59 tools), what the model may see of living and Private people (22.4), the tree's rules in the system prompt and the changes line with Revert (22.2), Options › Assistant's two new settings (22.7); `TreeDocument.RestoreCopy` (8 is unchanged: it is one more `Change`); `ChartsView.Show`. |
 | 11 November 2026 | 0.2.0 | Research, slice B (25.3, 25.4): `suggest_resources`, `api_notes` and `fetch_url` (22.3, 63 tools), a per-call allow and `AssistantTool.Default` and `ReachesWeb` (22.4, 24), Options › Research and `ResearchKeys` (22.7), `Ai/Research` (3); DigitalNZ needs no key, and the Library of Congress, NARA and GOV were left out (22.8). |
 | 11 November 2026 | 0.2.0 | Research, slice A (new section 25): web address, accessed date and extract on citations and a web address on sources (5, 15.2, 15.3), in GEDCOM as `WWW`, `_ACCESSED` and `DATA` `TEXT` (11); the tree's media folder and `download_file` (22.3, 60 tools), with `openWorldHint` for programs (24); Find searches extracts (7.3); research split into slices A to C (22.8). |
+| 11 November 2026 | 0.2.0 | Gather media (7.2): copies every linked file into one folder and relinks the tree as one undo step; in the Media footer (15.3) and Import and export (14); the media folder (25.2) and the media gap (19). |
 | 10 November 2026 | 0.2.0 | Software updates (new section 23): update client, offer, notice, Options › Updates, Tools > Check for updates..., `--noautoupdate` (14); the icon and the installer, and the release steps (20); `Updates` settings (17); no longer "no installer, no version check" (19). |
