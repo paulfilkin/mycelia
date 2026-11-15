@@ -6,7 +6,11 @@ using System.Text.RegularExpressions;
 namespace Mycelia.Ai.Research;
 
 /// <summary>What fetch_url got: the status, the type, the final address and the text (whole, before any slice is taken).</summary>
-public sealed record FetchResult(int Status, string Reason, string ContentType, string FinalUrl, string Text, bool IsHtml, bool Cut);
+public sealed record FetchResult(int Status, string Reason, string ContentType, string FinalUrl, string Text, bool IsHtml, bool Cut)
+{
+    /// <summary>The page is a search form that ran no search for what the address asked (<see cref="WebFetch.FormNotRun"/>).</summary>
+    public bool FormNotRun { get; init; }
+}
 
 /// <summary>
 /// fetch_url's requests (TDD 25.4): GET only, http and https only, text, JSON or XML only, at most <see cref="MaxBytes"/>.
@@ -99,10 +103,50 @@ public static class WebFetch
             var (bytes, cut) = await ReadAsync(response, cancel);
             var text = Decode(bytes, response.Content.Headers.ContentType?.CharSet);
             bool html = type.Contains("html", StringComparison.OrdinalIgnoreCase) || (type.Length == 0 && text.TrimStart().StartsWith('<') && text.Contains("<html", StringComparison.OrdinalIgnoreCase));
+            var notRun = false;
             if (html)
+            {
+                var page = text;
                 text = HtmlToText(text);
-            return new FetchResult(status, response.ReasonPhrase ?? "", type, Redact(uri.ToString(), secrets), Redact(text, secrets), html, cut);
+                notRun = FormNotRun(page, text, uri);
+            }
+            return new FetchResult(status, response.ReasonPhrase ?? "", type, Redact(uri.ToString(), secrets), Redact(text, secrets), html, cut) { FormNotRun = notRun };
         }
+    }
+
+    private static readonly Regex InputTag = new(@"<input\b[^>]*>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex Attribute = new(@"\b(name|type)\s*=\s*(?:""([^""]*)""|'([^']*)'|([^\s>]+))", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// A search form that ran no search: the page has a form with a text box named like one of the address's query
+    /// parameters, and none of that parameter's words appear in the page's visible text.  A site whose search needs
+    /// its form submitted (FreeBMD's posts it) gives back its empty form for such an address; a real results page shows
+    /// the words searched for.  From a test on 15 November 2026, in which the model read FreeBMD's form ten times and
+    /// reported searches that never ran (TDD 25.4).
+    /// </summary>
+    public static bool FormNotRun(string html, string visibleText, Uri requested)
+    {
+        if (requested.Query.Length < 2 || html.IndexOf("<form", StringComparison.OrdinalIgnoreCase) < 0) return false;
+        var query = requested.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Split('=', 2))
+            .Where(p => p.Length == 2)
+            .GroupBy(p => Uri.UnescapeDataString(p[0]).Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => Uri.UnescapeDataString(g.First()[1].Replace('+', ' ')), StringComparer.OrdinalIgnoreCase);
+        var textBoxes = InputTag.Matches(html).Select(m =>
+        {
+            string? name = null, kind = null;
+            foreach (Match a in Attribute.Matches(m.Value))
+            {
+                var value = a.Groups[2].Success ? a.Groups[2].Value : a.Groups[3].Success ? a.Groups[3].Value : a.Groups[4].Value;
+                if (a.Groups[1].Value.Equals("name", StringComparison.OrdinalIgnoreCase)) name = value; else kind = value;
+            }
+            return (Name: name, Kind: kind ?? "text");
+        }).Where(t => t.Name is not null && t.Kind is "text" or "search").Select(t => t.Name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var searched = query.Where(q => textBoxes.Contains(q.Key))
+            .Select(q => Regex.Matches(q.Value, @"\p{L}{3,}").Select(m => m.Value).ToList())
+            .Where(words => words.Count > 0).ToList();
+        if (searched.Count == 0) return false;
+        return !searched.SelectMany(w => w).Any(word => visibleText.Contains(word, StringComparison.CurrentCultureIgnoreCase));
     }
 
     /// <summary>The address with the API's fixed parameters, and its key when it goes in the address; or the header to add.</summary>

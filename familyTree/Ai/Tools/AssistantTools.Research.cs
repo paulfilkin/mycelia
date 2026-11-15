@@ -114,6 +114,7 @@ public sealed partial class AssistantTools
                     Settings.AllowedSites.Add(AssistantSettings.SiteOf(site));
                 return true;
             },
+            RefuseBeforeAsking = FetchRefusal,
             AlwaysLabel = "Always allow this site",
             AlwaysOutcome = "Allowed (always for this site)",
             Run = FetchUrlAsync,
@@ -122,6 +123,30 @@ public sealed partial class AssistantTools
                 : $"Read {args.Str("url")}.",
         };
         yield return _fetchTool;
+    }
+
+    // ---- fetch_url's refusals (TDD 25.4), from a test on 15 November 2026 in which the model read FreeBMD's search form
+    // ten times and tried three subscription sites six times ----
+
+    /// <summary>Addresses read in the current request (address, start and length), with the length of what came back and when.</summary>
+    private readonly Dictionary<string, (int Length, DateTime When)> _fetched = [];
+
+    private static string FetchKey(JsonObject args) =>
+        $"{args.Str("url")?.Trim()}|{Math.Max(0, args.Int("start", 0))}|{Math.Clamp(args.Int("max_chars", DefaultFetchChars), 500, MaxFetchChars)}";
+
+    /// <summary>
+    /// Why fetch_url won't read an address, before any card: a subscription or sign-in site gives a program only a 403 or
+    /// a sign-in page; an address already read in this request (within the last ten minutes, for other programs, which
+    /// have no requests) would give the same text again.  Null to go on.
+    /// </summary>
+    private string? FetchRefusal(JsonObject args)
+    {
+        if (!Uri.TryCreate(args.Str("url")?.Trim(), UriKind.Absolute, out var uri)) return null;
+        if (ResearchApis.SignInSite(uri) is { } site)
+            return $"{site} needs a subscription or a sign-in, so it isn't fetched.  Give the person the search to run there (the words, places and years), or put it in the research log's next steps.";
+        if (_fetched.TryGetValue(FetchKey(args), out var earlier) && DateTime.Now - earlier.When < TimeSpan.FromMinutes(10))
+            return $"Already read in this request ({earlier.Length:N0} characters); use what it gave.  Give a different start to read on, or a different address.";
+        return null;
     }
 
     /// <summary>The address is on a site the person always allows (Options › Research).</summary>
@@ -163,8 +188,15 @@ public sealed partial class AssistantTools
 
         int start = Math.Max(0, args.Int("start", 0));
         int max = Math.Clamp(args.Int("max_chars", DefaultFetchChars), 500, MaxFetchChars);
+        _fetched[FetchKey(args)] = (result.Text.Length, DateTime.Now);
         bool failed = result.Status >= 400;
         if (failed) max = Math.Min(max, 2000);
+        // A search form that ran no search: say so first, and give only the start of the form (WebFetch.FormNotRun).
+        if (result.FormNotRun && !failed)
+        {
+            var form = result.Text.Length > 1500 ? result.Text[..1500] + "..." : result.Text;
+            return new ToolOutcome($"This page is {uri.Host}'s search form, not results: no search was run for what the address asked, so there are no results to report.  The site needs its form filled in, which fetch_url can't do.  Don't record {uri.Host} as searched; give the person the search to run there, or put it in the research log's next steps.\n\nThe form, briefly:\n{form}", false, "Search form: no search run");
+        }
         var text = start >= result.Text.Length ? "" : result.Text.Substring(start, Math.Min(max, result.Text.Length - start));
         int end = start + text.Length;
         var head = $"{result.Status} {result.Reason}, {(result.ContentType.Length > 0 ? result.ContentType : "no type given")}{(result.IsHtml ? " (a web page, given as plain text)" : "")}, from {result.FinalUrl}";

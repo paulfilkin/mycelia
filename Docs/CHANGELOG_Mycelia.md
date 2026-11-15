@@ -26,6 +26,14 @@ understand what changed without reading the diff.
 
 ### Changed
 
+- **The Assistant can't claim searches or changes it didn't make.**  A site whose search needs its
+  own form, such as FreeBMD, is now recognised when only the empty form comes back, so the
+  Assistant is told no search ran instead of reporting "no entry found".  Subscription and sign-in
+  sites (Ancestry, Findmypast, the British Newspaper Archive, MyHeritage and others, and the GRO's
+  index) are refused without asking you, and their searches go in the research log's next steps for
+  you to run.  A page already read in a request isn't fetched again.  If a reply says it changed
+  the tree when nothing changed, the pane says so underneath.  Asked to do several things, it does
+  them all before reporting, instead of asking again.
 - **The Assistant's button for starting again** is now a speech bubble with a plus, "New
   conversation".  It was a bin, which looked as if it would delete the selected person.  It still
   asks before forgetting the conversation.

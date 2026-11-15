@@ -60,6 +60,12 @@ public sealed class AssistantTool
     /// <summary>The tool sends requests to the web (openWorldHint for other programs, TDD 24).</summary>
     public bool ReachesWeb { get; init; }
 
+    /// <summary>
+    /// Why a call is refused before anything else, before an approval card is shown (fetch_url: a subscription or
+    /// sign-in site, an address already read in this request, TDD 25.4); null to go on.  Its sentence is the result.
+    /// </summary>
+    public Func<JsonObject, string?>? RefuseBeforeAsking { get; init; }
+
     /// <summary>The call needs the person's answer first: Ask, unless this call is one that may run without asking.</summary>
     public bool NeedsApproval(JsonObject args) => Policy == ToolPolicy.Ask && !(AllowWithoutAsking?.Invoke(args) ?? false);
 

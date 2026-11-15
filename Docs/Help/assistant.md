@@ -103,6 +103,8 @@ When a request has changed the tree, the pane ends it with a line such as "4 cha
 - Revert is refused once the tree has changed since the request ended ("The tree has changed since, so it wasn't reverted.  Undo takes changes back one at a time."), or when another tree is open.
 - A conversation reopened later still shows the line, but its Revert button is gone.
 
+If a request changed nothing but the reply says it did ("I added...", "Updated the research log..."), the pane adds a line: "No changes were made to the tree in this request, whatever the reply above says."  Trust that line, and the changes line above, over the reply's wording.
+
 Every change the Assistant makes is also one ordinary Undo step (Ctrl+Z), except bookmarks, which are never undo steps.  Changes are not saved until you save the tree; the Assistant saves only when you ask it to, and asks first.
 
 ## What the AI model sees
@@ -189,6 +191,12 @@ The Assistant can read these archives' own search services without an approval c
 Trove and Europeana need a free key and GeoNames a user name, entered in Options > Research (see [MCP servers](mcp-servers.md#research-settings)).  Mycelia adds the key to that archive's requests itself, so the AI model never sees it.  The names, places and dates in a search go to that archive, as they would if you searched its website yourself.
 
 Any other web address asks first, with a card saying the address, and anything in it, goes to that site.  The Assistant can't fill in a search form or sign in to a website; when a site's search needs that, it gives you the steps instead.
+
+Some things it doesn't try at all, so you aren't asked about them:
+
+- **Subscription and sign-in sites** (Ancestry, Findmypast, the British Newspaper Archive, MyHeritage, TheGenealogist, Fold3, Newspapers.com, and the GRO's own index) are refused without a card.  The Assistant puts the search to run there in the research log's next steps for you.
+- **A page it has already read** in the same request isn't fetched again.
+- **A search form that ran no search**, such as FreeBMD's (its search needs the site's form filled in), is recognised: the Assistant is told no search ran, so it doesn't report results or log the site as searched.  Run those searches yourself on the site.
 
 You can add more archives as MCP servers: see [MCP servers](mcp-servers.md).
 

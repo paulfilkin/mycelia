@@ -1326,7 +1326,16 @@ the connected servers; and the person's own instructions.
 **Changes made by a request.**  `IAssistantHost.BeginRequest` and `EndRequest` frame each
 request.  When the request changed the tree, the pane ends it with a line: "4 changes to the tree.
 Each is one Undo step." and a Revert button (`ChangesMade`, section 22.3).  The line is kept in the
-saved conversation, but a restored one can no longer revert.
+saved conversation, but a restored one can no longer revert.  When the request changed nothing but
+the model's last reply says it did (`AssistantSession.ClaimsChanges`: a past-tense "I added",
+"I've updated", a line starting "Updated..." or "Added...", "... and recorded a"; an offer such as
+"I can add" doesn't count), the pane adds the notice "No changes were made to the tree in this
+request, whatever the reply above says."  Added after a test on 15 November 2026 in which the model
+said it had updated a research log and added a note, and had changed nothing.
+
+**Refused before asking.**  A tool can refuse a call outright, before an approval card
+(`AssistantTool.RefuseBeforeAsking`, giving the sentence that is the result); the Assistant and calls
+from other programs (section 24) both check it first.  `fetch_url` uses it (section 25.4).
 
 ### 22.3 Built-in tools (`Ai/Tools/AssistantTools*.cs`)
 
@@ -1937,6 +1946,23 @@ still pass.  A picture of the Sources workspace with the Web address field.
   before any request, naming Options › Research and where to get one.  The answer starts with the
   status, type, final address and which characters are given, with `next_start` to read on; a 401
   or 403 from a keyed API says the key may be wrong, a 429 says to wait.
+- **What `fetch_url` won't do** (added after a test on 15 November 2026 in which the model read
+  FreeBMD's search form ten times, reported searches that never ran, and tried three subscription
+  sites six times):
+  - **Subscription and sign-in sites** (`ResearchApis.SignInSites`, by host and the hosts under it:
+    Ancestry and its sites Fold3 and Newspapers.com, Findmypast, the British Newspaper Archive,
+    MyHeritage and Filae, TheGenealogist, the GRO) are refused before any card or request, saying
+    to give the person the search to run or put it in the research log's next steps.
+  - **An address read again in the same request** (the same address, start and length;
+    `AssistantTools.BeginRequest` clears the list, and for other programs, which have no requests,
+    a read counts for ten minutes) is refused before any card, giving the length of what came back.
+  - **A search form that ran no search** (`WebFetch.FormNotRun`): an HTML page with a form holding a
+    text box named like one of the address's query parameters, and none of that parameter's words
+    of three or more letters in the page's visible text.  The answer says it is the site's search
+    form, that no search was run and there are no results, not to record the site as searched,
+    and to give the person the search; then the start of the form, at most 1,500 characters.  A
+    results page shows the words searched for, so it isn't flagged.  The resources list's FreeBMD
+    row says the same, so `suggest_resources` warns before a try.
 - **`WebFetch`** (`Ai/Research/WebFetch.cs`): GET only; no user name or password in the address;
   its own `HttpClient` (`Mycelia/<version>` as the user agent, 45 seconds) with redirects
   followed by hand, at most five.  A call that ran without asking stops at a redirect to an address
@@ -2062,6 +2088,19 @@ offer to the person, search addresses as sources), so searches went to a researc
 - The notes rule (in the general rules and in `AssistantTools.NoteRule`) says searches, unconfirmed
   leads and next steps belong in the research log, not in notes; questions, offers and messages to
   the person never go in the tree.
+
+Added after a second test the same day, in which the model logged FreeBMD as searched from its
+search form, offered to order a certificate, said it had changed the tree when it hadn't, and
+answered "Do all three" and "All of them" with more menus (the code that goes with these is in
+sections 22.2 and 25.4):
+
+- A place goes in a log's searched list only when a search ran there and its results were read;
+  a search form, a refused site or a failed page is not a search, and goes in next steps.
+- Never offer anything that costs money (a certificate, a subscription) or needs the person's
+  sign-in; list it in the log's next steps for them, with the search to run.
+- "All", "both", "all of them" or "do all three" means every one in this request, then one report;
+  no closing menu of what to do next.
+- Say the tree was changed only when a tool that changes it succeeded in this request.
 
 ---
 
@@ -2215,6 +2254,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | --- | --- | --- |
 | 15 November 2026 | 0.4.0 (unreleased) | Save shows unsaved changes (accent, a dot and its tooltip, 14); a button's green focus frame shows only for keyboard focus (`KeyboardFocusFrame`, 16), so Save no longer looks "saved" after a click. |
 | 15 November 2026 | 0.4.0 (unreleased) | The Assistant's new conversation button is a speech bubble with a plus (`I.NewConversation`), and the Assistant shows the Mycelia mark in colour on the top bar, its panel header and empty state (`FoldPanel.IconImage`, `UiKit.EmptyState`'s picture), replacing `I.Assistant` (16, 16.1, 22.1, 26.1). |
+| 15 November 2026 | 0.4.0 (unreleased) | After a second test: the notice for a reply claiming changes that weren't made, `AssistantTool.RefuseBeforeAsking` (22.2); `fetch_url` refuses subscription and sign-in sites and repeat reads before asking, and flags a search form that ran no search (`WebFetch.FormNotRun`, 25.4); the FreeBMD row of the resources list; rules (25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice B: the person panel's Research tab and a couple's log on its family card, the Research question window (15.2); Tools' research to-do (15.5); `PersonEditor.OpenTab` and `--person-tab` (14, 15.2); the sample tree's invented entries and the `person-research` help picture (28). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice A: `ResearchEntry` and `Research` on people and families, left out of the file while empty (5, 6); `ResearchLog` (7), joined by merging and combining (7.1), carried by tree merges (7.2), searched by Find (7.3), not in GEDCOM (11); `log_research`, research text checks on it and `add_note`, the log in `research_context`, `get_person` and `get_family` (22.3, 68 tools); rules (22.2, 25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |

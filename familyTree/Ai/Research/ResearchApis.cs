@@ -128,4 +128,25 @@ public static class ResearchApis
         ("NARA National Archives Catalog", "its API needs a key requested by email and gives only its web page without one"),
         ("GOV historic gazetteer", "its web service takes SOAP requests only, which fetch_url doesn't send"),
     ];
+
+    /// <summary>
+    /// Sites whose records need a subscription or a sign-in, which fetch_url refuses before asking (TDD 25.4): a program
+    /// gets only a 403 or a sign-in page from them.  From the resources list (Docs/Resources/genealogy-resources.md, cost
+    /// "Paid" with no public API, and the GRO's sign-in index), 15 November 2026, after a test in which the model tried
+    /// three of them six times.  By host and the hosts under it.
+    /// </summary>
+    public static readonly IReadOnlyList<(string Host, string Name)> SignInSites =
+    [
+        ("ancestry.com", "Ancestry"), ("ancestry.co.uk", "Ancestry"), ("ancestry.ca", "Ancestry"), ("ancestry.com.au", "Ancestry"),
+        ("findmypast.co.uk", "Findmypast"), ("findmypast.com", "Findmypast"), ("findmypast.ie", "Findmypast"), ("findmypast.com.au", "Findmypast"),
+        ("britishnewspaperarchive.co.uk", "British Newspaper Archive"),
+        ("myheritage.com", "MyHeritage"), ("myheritage.co.uk", "MyHeritage"), ("filae.com", "Filae"),
+        ("thegenealogist.co.uk", "TheGenealogist"), ("fold3.com", "Fold3"), ("newspapers.com", "Newspapers.com"),
+        ("gro.gov.uk", "the General Register Office (GRO)"),
+    ];
+
+    /// <summary>The subscription or sign-in site this address is on, or null.</summary>
+    public static string? SignInSite(Uri uri) =>
+        SignInSites.FirstOrDefault(s => uri.Host.Equals(s.Host, StringComparison.OrdinalIgnoreCase)
+                                        || uri.Host.EndsWith("." + s.Host, StringComparison.OrdinalIgnoreCase)).Name;
 }

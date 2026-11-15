@@ -181,6 +181,7 @@ public sealed class AssistantSession
         _cancel = new CancellationTokenSource();
         var cancel = _cancel.Token;
         var options = Settings;
+        var lastReply = "";
         var provider = ChatProviders.Create(new ChatProviderOptions(options.Provider, options.Model,
             options.GetApiKey(options.Provider), options.Endpoint, Math.Clamp(options.MaxTokens, 256, 64000)));
 
@@ -217,7 +218,10 @@ public sealed class AssistantSession
                 if (reply.Text.Length > 0 || reply.ToolCalls.Count > 0)
                     _turns.Add(new AssistantTurn(reply.Text, reply.ToolCalls));
                 if (reply.Text.Trim().Length > 0)
+                {
                     Items.Add(new AssistantMessage(reply.Text.Trim()));
+                    lastReply = reply.Text;
+                }
                 if (reply.ToolCalls.Count == 0)
                 {
                     if (reply.StopReason is "max_tokens" or "length")
@@ -257,6 +261,10 @@ public sealed class AssistantSession
             var (changes, revert) = _host.EndRequest();
             if (changes > 0)
                 Items.Add(new ChangesMade(changes, revert));
+            // A reply saying the tree was changed when nothing was (TDD 22.2): from a test on 15 November 2026 in which
+            // the model said it had updated a research log and added a note, and had called no tool that changes anything.
+            else if (ClaimsChanges(lastReply))
+                Items.Add(new NoticeMessage("No changes were made to the tree in this request, whatever the reply above says.", false));
             _cancel?.Dispose();
             _cancel = null;
             SetBusy(false, string.Empty);
@@ -264,11 +272,31 @@ public sealed class AssistantSession
         }
     }
 
+    private static readonly System.Text.RegularExpressions.Regex ChangeClaim = new(
+        @"\bI(?:'ve| have)?\s+(?:also\s+|now\s+)?(?:added|updated|recorded|logged|saved|changed|created|cited|linked|merged|deleted|removed|corrected)\b"
+        + @"|(?m)^[\s\-*•]*(?:Added|Updated|Recorded|Logged|Created|Cited|Corrected)\b"
+        + @"|\band\s+(?:added|updated|recorded|logged)\s+(?:the|a|an)\b",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// The reply says, in the past tense, that something was added, updated, recorded or the like ("I added...", "Updated
+    /// the research log", "...and recorded a note").  An offer ("I can add...") doesn't count.  Used only when the request
+    /// changed nothing, so a true claim never shows the notice.
+    /// </summary>
+    public static bool ClaimsChanges(string reply) => reply.Length > 0 && ChangeClaim.IsMatch(reply);
+
     private async Task<ToolResult> RunToolAsync(ToolCall call, List<AssistantTool> tools, CancellationToken cancel)
     {
         var tool = tools.FirstOrDefault(t => t.Name == call.Name);
         if (tool == null)
             return new ToolResult(call.Id, call.Name, $"There is no tool {call.Name} (it may be switched off).", true);
+
+        // A call the tool refuses outright is answered without a card (TDD 25.4).
+        if (tool.RefuseBeforeAsking?.Invoke(call.Arguments) is { } refused)
+        {
+            Items.Add(new ToolActivity(tool, call.Arguments) { State = ToolActivityState.Failed, Summary = refused, Result = refused });
+            return new ToolResult(call.Id, call.Name, refused, true);
+        }
 
         if (tool.NeedsApproval(call.Arguments) && !Settings.SkipApprovals)
         {
@@ -339,6 +367,8 @@ public sealed class AssistantSession
         var from = $"From {program}";
         if (tool.Policy == ToolPolicy.Off)
             return new ToolOutcome($"{tool.Name} is switched off in Mycelia's Options.", true);
+        if (tool.RefuseBeforeAsking?.Invoke(arguments) is { } refused)
+            return new ToolOutcome(refused, true, "Refused");
         if (tool.NeedsApproval(arguments))
         {
             ShowForApproval?.Invoke();
@@ -660,6 +690,9 @@ public sealed class AssistantSession
         builder.AppendLine("How to work:");
         builder.AppendLine("- When the request is clear, do it: call the tools and report what you did. Ask only when the request is genuinely ambiguous, when a step would delete or overwrite something the person may want, or when you can't go on without an answer. Don't ask the person to confirm steps they have already asked for.");
         builder.AppendLine("- When the person says \"you choose\", \"go ahead\" or similar, choose sensibly, carry on and say what you chose.");
+        // From a test on 15 November 2026: told "Do all three" and "All of them", the model did part, then asked again.
+        builder.AppendLine("- \"All\", \"both\", \"all of them\" or \"do all three\" means do every one in this request, then report once. Don't end with a menu of what to do next.");
+        builder.AppendLine("- Say you changed the tree only when a tool that changes it succeeded in this request; the pane shows the person what changed.");
         builder.AppendLine("- When the person names a service (an archive, a record site, a collaborative tree), use that connected MCP server's tools.");
         builder.AppendLine("- Report only checks you actually made. You can't see images, so don't say you checked them; say what the tool results show instead.");
         builder.AppendLine("- End your reply when the task is done or you need an answer. Don't end with offers such as \"If you want, I can...\".");
@@ -710,6 +743,9 @@ public sealed class AssistantSession
         // reach, and fetched FreeBMD's search form four times.
         builder.AppendLine("- You can search only through the connected MCP servers' tools and fetch_url. Never offer to search a site you can't reach (Ancestry, Findmypast and other subscription or sign-in sites): name it and say the person can search it there.");
         builder.AppendLine("- fetch_url reads pages and APIs (GET only); it can't fill in or submit a search form or sign in. When a site's search needs that, don't retry it: after one try, give the person the search steps instead.");
+        // From the same test: FreeBMD's form, read ten times, was logged as searched; a certificate order was offered.
+        builder.AppendLine("- A place goes in a research log's searched list only when a search actually ran there and you read its results. A search form, a refused site or a page that failed is not a search: put it in next steps for the person.");
+        builder.AppendLine("- Never offer anything that costs money (ordering a certificate, a subscription) or needs the person's sign-in; list it in the research log's next steps for them, with the search to run.");
         builder.AppendLine("- Cite every record you use with add_citation: the source, the detail (page, entry, reference), the record's web address, the date you accessed it, and a short extract or transcription of what it says.");
         builder.AppendLine("- Say when a site needs a subscription or a sign-in, and point the person to it rather than guessing what it holds.");
         builder.AppendLine("- Never invent a record, a reference, a quotation or a web address. If a search finds nothing, say so. A record about someone with the same name is a candidate, not a match: say what links it to the person, or what would confirm it.");
