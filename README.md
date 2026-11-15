@@ -8,11 +8,25 @@ catalogues.
 A mycelium is the underground network that links trees and feeds them.  In Mycelia, archives and
 MCP servers do that for a family tree.  MCP also stands for "Mycelia Connects Pedigrees".
 
-![The People workspace with the Assistant](Docs/Images/people.png)
+![The People workspace with a research log and the Assistant](Docs/Images/people.png)
 
 > **Status:** version 0.4.0, in development.  Ready-built versions for testing are on the
 > [Releases page](https://github.com/paulfilkin/mycelia/releases) (see [Download](#download)).
 > The tree file format may still change.
+
+## New in 0.4.0
+
+- **A research log** on each person and couple: one entry per question, with where has been
+  searched, what came of it and what to try next.  The Tools workspace's research to-do lists
+  every open question.
+- **Research that builds on what the family's records already hold.**  The Assistant reads the
+  notes and research logs of the person and their nearest relatives first, so it doesn't search
+  again what has been searched.
+- **An Assistant that can't claim what it didn't do.**  Searches that never ran aren't logged, the
+  pane lists the pages each request read, and every change shows what it will change before you
+  approve it.
+
+The [changelog](Docs/CHANGELOG_Mycelia.md) has the rest.
 
 ## Familiar, but different
 
