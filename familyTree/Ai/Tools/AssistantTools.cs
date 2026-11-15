@@ -287,6 +287,8 @@ public sealed partial class AssistantTools
         // fetch_url reads an address once per request (TDD 25.4), and the pane lists what it read (PagesRead).
         _fetched.Clear();
         _reads.Clear();
+        // log_research updates an entry once per request.
+        _logged.Clear();
     }
 
     /// <summary>

@@ -42,11 +42,13 @@ public static class ResearchLog
     /// <summary>
     /// Records research on a question: the existing entry for it is updated (the places in <paramref name="remove"/>
     /// taken out of its searched list (<see cref="Matching"/>), the places searched added, and the status, result and
-    /// next steps replaced when given), or a new entry is made.  Run inside <see cref="TreeDocument.Change"/>.  Gives the
+    /// next steps replaced when given), or a new entry is made.  With <paramref name="replaceSearched"/> the places
+    /// searched become the whole list instead (tidying it).  Run inside <see cref="TreeDocument.Change"/>.  Gives the
     /// entry and whether it is new.
     /// </summary>
     public static (ResearchEntry Entry, bool Created) Record(object owner, string? factId, string topic, ResearchStatus status,
-        IEnumerable<string> searched, string? result, IEnumerable<string>? next, DateTime today, IEnumerable<string>? remove = null)
+        IEnumerable<string> searched, string? result, IEnumerable<string>? next, DateTime today, IEnumerable<string>? remove = null,
+        bool replaceSearched = false)
     {
         var entry = Find(owner, factId, topic);
         var created = entry is null;
@@ -57,7 +59,10 @@ public static class ResearchLog
         }
         entry.FactId ??= factId;
         entry.Status = status;
-        if (remove is not null)
+        // From a test on 15 November 2026: asked to tidy a log, the model sent a short list thirteen times, and each call
+        // added it to the list instead of replacing it.
+        if (replaceSearched) entry.Searched.Clear();
+        else if (remove is not null)
         {
             var gone = remove.SelectMany(r => Matching(entry.Searched, r)).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
             entry.Searched.RemoveAll(gone.Contains);

@@ -3,6 +3,22 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
+## 0.4.1 - unreleased
+
+Tidying a research log in one step, without the Assistant going round in circles.
+
+### Changed
+
+- **The Assistant can tidy a research entry's Searched list.**  Asked to tidy an entry, it now
+  replaces the list with a shorter one in one step, and the card shows what the list becomes and
+  every place taken out.  Before, it could only add to the list: asked to tidy an entry, it
+  sent a short list thirteen times, and each time the list grew longer.
+- **Each research entry is updated once per request.**  A second update of the same entry in one
+  request is refused, and the Assistant is told what the entry now holds, so it reports that
+  instead of trying again.
+- **The Assistant is told what each log change did, in words**, such as "2 places added, none
+  removed; it now holds 14 places", and when a list is long, how to offer tidying it.
+
 ## 0.4.0 - 15 November 2026
 
 A research log for each person and couple, research that builds on what the family's records

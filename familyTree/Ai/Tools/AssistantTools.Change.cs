@@ -62,7 +62,7 @@ public sealed partial class AssistantTools
             NotesRefusal(args => Doc.GetPerson(args.Str("person_id"))?.Notes)),
 
         Write("log_research", "Log research",
-            "Records research on one question in a person's or a couple's research log: where was searched, what came of it and what to try next. One entry per question: logging the same fact or topic again updates that entry (the places searched are added, the status, result and next steps replaced), so never repeat it as a new one. To correct the searched list, such as a search that didn't run, use remove_searched; say a place was removed only when the entry this returns no longer lists it. Use it for every search, found or not, and for anyone in the tree the question is about. A record that confirms something also becomes a fact with a citation (add_fact, add_citation); set status Found. Write in the third person, briefly.",
+            "Records research on one question in a person's or a couple's research log: where was searched, what came of it and what to try next. One entry per question: logging the same fact or topic again updates that entry (the places searched are added, the status, result and next steps replaced), so never repeat it as a new one. Log each question once per request, when its searches are done, with everything searched; a second update of the same entry in one request is refused. To take a place out of the searched list, such as a search that didn't run, use remove_searched; to tidy the list, give the whole list as it should be in searched with replace_searched true. Say a place was removed only when the entry this returns no longer lists it. Use it for every search, found or not, and for anyone in the tree the question is about. A record that confirms something also becomes a fact with a citation (add_fact, add_citation); set status Found. Write in the third person, briefly.",
             Schema.Object(
                 ("owner_id", Schema.String("The person's id, or a family's id for a couple's question (a marriage, a divorce)."), true),
                 ("fact_id", Schema.String("The fact the question is about, when there is one (get_person gives fact ids)."), false),
@@ -71,6 +71,7 @@ public sealed partial class AssistantTools
                 ("searched", Schema.Array(Schema.String("A place searched, by short name and scope: \"FreeBMD deaths 1870-72 (Ashworth, Ashworthe)\", \"TNA Discovery\". Never a search address."), "Where was searched this time."), false),
                 ("result", Schema.String("What came of it, in a sentence or two, third person: \"No index entry, burial or probate found online.\" Required for a new entry; left out, an entry already there keeps its result."), false),
                 ("remove_searched", Schema.Array(Schema.String("A place to take out, as the log lists it or by its first words: \"FreeBMD\" takes out every place starting \"FreeBMD \"."), "Places to take out of the entry's searched list, such as a search that didn't run. Removed before searched is added, so a place can be replaced in one call."), false),
+                ("replace_searched", Schema.Boolean("True: searched becomes the whole searched list, replacing what is there (to tidy repeats and near-repeats). Default false: searched is added to the list."), false),
                 ("next", Schema.Array(Schema.String("One next step: \"GRO online index, Dec quarter 1871, Todmorden\"."), "What to try next (replaces the entry's next steps)."), false)),
             LogResearch,
             DescribeLogResearch,
@@ -754,7 +755,7 @@ public sealed partial class AssistantTools
 
     // ---- log_research ----
 
-    private (object Owner, Fact? Fact, string Topic, ResearchStatus Status, List<string> Searched, string? Result, List<string>? Next, List<string> Remove) ResearchArgs(JsonObject args)
+    private (object Owner, Fact? Fact, string Topic, ResearchStatus Status, List<string> Searched, string? Result, List<string>? Next, List<string> Remove, bool Replace) ResearchArgs(JsonObject args)
     {
         var (owner, facts, _) = OwnerArg(args.Str("owner_id"));
         Fact? fact = null;
@@ -781,11 +782,14 @@ public sealed partial class AssistantTools
             CheckThirdPerson(result, "result");
         }
         var remove = args.Strings("remove_searched").Select(Plain).Where(s => s.Length > 0).ToList();
+        bool replace = args.Bool("replace_searched", false);
+        if (replace && remove.Count > 0)
+            throw new ResearchRefused("Give replace_searched or remove_searched, not both: with replace_searched, searched is the whole new list.");
         if (remove.Count > 0 && existing is null)
-            throw new NothingToRemove($"There is no entry for \"{topic}\" yet, so there is nothing to remove from its searched places.");
+            throw new ResearchRefused($"There is no entry for \"{topic}\" yet, so there is nothing to remove from its searched places.");
         foreach (var r in remove)
             if (ResearchLog.Matching(existing!.Searched, r).Count == 0)
-                throw new NothingToRemove($"\"{r}\" matches none of the places searched for \"{existing.Topic}\", so nothing was removed.  Its searched places are: "
+                throw new ResearchRefused($"\"{r}\" matches none of the places searched for \"{existing.Topic}\", so nothing was removed.  Its searched places are: "
                     + (existing.Searched.Count == 0 ? "none." : string.Join("; ", existing.Searched) + "."));
         var searched = args.Strings("searched").Select(Plain).Where(s => s.Length > 0).ToList();
         foreach (var s in searched)
@@ -804,40 +808,73 @@ public sealed partial class AssistantTools
                 CheckThirdPerson(s, "A next step");
             }
         }
-        return (owner, fact, topic, status, searched, result, next, remove);
+        return (owner, fact, topic, status, searched, result, next, remove, replace);
     }
 
     /// <summary>
-    /// log_research's refusal before the card: a place to remove that matches nothing in the entry, or removing from an
-    /// entry that isn't there, so the model can't report a removal that didn't happen.  Other mistakes are reported after.
+    /// log_research's refusals before the card: a place to remove that matches nothing in the entry, removing from an
+    /// entry that isn't there, or removing and replacing at once, so the model can't report a removal that didn't
+    /// happen.  Other mistakes are reported after.
     /// </summary>
-    private sealed class NothingToRemove(string message) : ArgumentException(message);
+    private sealed class ResearchRefused(string message) : ArgumentException(message);
+
+    /// <summary>
+    /// Research entries log_research has updated in the current request, by entry id, and when (other programs have no
+    /// requests, so an update counts for ten minutes there).  From a test on 15 November 2026, in which the model
+    /// updated one entry thirteen times in one request, each time making its list longer.
+    /// </summary>
+    private readonly Dictionary<string, DateTime> _logged = [];
+
+    /// <summary>A second update of the same entry in this request: the refusal, with the entry as it reads, or null.</summary>
+    private string? LoggedAgain(ResearchEntry? existing)
+    {
+        if (existing is null || !_logged.TryGetValue(existing.Id, out var when) || DateTime.Now - when > TimeSpan.FromMinutes(10)) return null;
+        return $"\"{existing.Topic}\" was already updated in this request, so it isn't updated again.  It now reads: {ResearchJson([existing])![0]!.ToJsonString()}  Report that to the person.";
+    }
 
     private string? LogResearchRefusal(JsonObject args)
     {
-        if (args.Strings("remove_searched") is not { Count: > 0 }) return null;
-        try { ResearchArgs(args); return null; }
-        catch (NothingToRemove ex) { return ex.Message; }
+        try
+        {
+            var a = ResearchArgs(args);
+            return LoggedAgain(ResearchLog.Find(a.Owner, a.Fact?.Id, a.Topic));
+        }
+        catch (ResearchRefused ex) { return ex.Message; }
         catch (ArgumentException) { return null; }
     }
+
+    /// <summary>Above this many places, the answer suggests tidying the searched list.</summary>
+    private const int LongSearchedList = 12;
 
     private string LogResearch(JsonObject args)
     {
         var a = ResearchArgs(args);
+        var existing = ResearchLog.Find(a.Owner, a.Fact?.Id, a.Topic);
+        if (LoggedAgain(existing) is { } again) throw new ArgumentException(again);
         var whose = OwnerForModel(a.Owner);
         ResearchEntry? entry = null;
         var created = false;
-        var before = ResearchLog.Find(a.Owner, a.Fact?.Id, a.Topic)?.Searched.ToList() ?? [];
+        var before = existing?.Searched.ToList() ?? [];
         Change(() =>
         {
-            (entry, created) = ResearchLog.Record(a.Owner, a.Fact?.Id, a.Topic, a.Status, a.Searched, a.Result, a.Next, DateTime.Today, a.Remove);
+            (entry, created) = ResearchLog.Record(a.Owner, a.Fact?.Id, a.Topic, a.Status, a.Searched, a.Result, a.Next, DateTime.Today, a.Remove, a.Replace);
             return "";
         });
-        var removed = before.Where(s => !entry!.Searched.Contains(s, StringComparer.CurrentCultureIgnoreCase)).ToList();
-        // The entry as saved, so the reply reports what is in the tree rather than what was meant.
-        var saved = ResearchJson([entry!])![0]!.ToJsonString();
-        return $"{(created ? "Added" : "Updated")} the research entry \"{entry!.Topic}\" ({StatusWords(entry.Status)}) in the log of {whose}."
+        _logged[entry!.Id] = DateTime.Now;
+        // What changed, in words, then the entry as saved, so the reply reports what is in the tree rather than what was meant.
+        var after = entry.Searched;
+        var added = after.Where(s => !before.Contains(s, StringComparer.CurrentCultureIgnoreCase)).ToList();
+        var removed = before.Where(s => !after.Contains(s, StringComparer.CurrentCultureIgnoreCase)).ToList();
+        string Places(int n) => n == 1 ? "1 place" : $"{n} places";
+        var change = $"  Searched: {Places(added.Count)} added, {(removed.Count == 0 ? "none" : removed.Count.ToString())} removed; it now holds {Places(after.Count)}.";
+        var tidy = after.Count > LongSearchedList && !a.Replace
+            ? "  The list is long; if its places repeat each other, offer the person to tidy it: one call with the whole list as it should be and replace_searched true."
+            : "";
+        var saved = ResearchJson([entry])![0]!.ToJsonString();
+        return $"{(created ? "Added" : "Updated")} the research entry \"{entry.Topic}\" ({StatusWords(entry.Status)}) in the log of {whose}."
+            + change
             + (removed.Count > 0 ? $"  Removed from searched: {string.Join("; ", removed)}." : "")
+            + tidy
             + $"  The entry now reads: {saved}";
     }
 
@@ -861,7 +898,15 @@ public sealed partial class AssistantTools
             var gone = remove.SelectMany(r => ResearchLog.Matching(existing.Searched, Plain(r))).Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
             if (gone.Count > 0) lines.Add("Remove from searched: " + string.Join("; ", gone) + ".");
         }
-        if (args.Strings("searched") is { Count: > 0 } searched) lines.Add("Searched: " + string.Join("; ", searched) + ".");
+        if (args.Bool("replace_searched", false))
+        {
+            // The whole list is replaced: the card says what it becomes and every place that goes.
+            var given = args.Strings("searched").Select(Plain).Where(s => s.Length > 0).ToList();
+            lines.Add(given.Count == 0 ? "Searched becomes empty." : "Searched becomes: " + string.Join("; ", given) + ".");
+            var dropped = existing?.Searched.Where(s => !given.Contains(s, StringComparer.CurrentCultureIgnoreCase)).ToList() ?? [];
+            if (dropped.Count > 0) lines.Add($"Taken out ({dropped.Count}): " + string.Join("; ", dropped) + ".");
+        }
+        else if (args.Strings("searched") is { Count: > 0 } searched) lines.Add("Searched: " + string.Join("; ", searched) + ".");
         if (args.Str("result") is { } result) lines.Add("Result: " + Plain(result));
         if (args.Strings("next") is { Count: > 0 } next) lines.Add("Next: " + string.Join("; ", next) + ".");
         return string.Join("  ", lines);

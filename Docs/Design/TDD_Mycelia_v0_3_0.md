@@ -316,7 +316,8 @@ Edits are building blocks meant to be called inside `Change` (section 8):
   given, else the same topic ignoring case and spacing) and updates it: the places in `remove` are
   taken out of its searched list, the places searched are added without repeats, and the status,
   result (when one is given) and next steps replaced (a Found or NotFound entry given no next steps
-  loses its old ones); otherwise it adds one.  `Matching(searched, item)` gives the places an item
+  loses its old ones); otherwise it adds one.  With `replaceSearched` the places searched become the
+  whole list instead, for tidying it.  `Matching(searched, item)` gives the places an item
   names: the same place ignoring case and spacing, or a place starting with the item's words and
   then a space or a bracket ("FreeBMD" names "FreeBMD deaths 1876-78 (Ashworth)", not "FreeBMDx").  `Combine(into, from)` joins two logs
   when people are merged or families combined: an entry for the same question is combined, keeping
@@ -1399,12 +1400,20 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   `ResearchLog.Record`: owner, `fact_id` or `topic` (made from the fact when left out: type, date as
   typed, the place's short name), status, `searched`, `result` (required for a new entry; left out,
   an entry keeps its result), `next`, `remove_searched` (places to take out, by `Matching`, before
-  `searched` is added); the same question again updates its entry; the card shows the entry as it
+  `searched` is added), `replace_searched` (`searched` becomes the whole list; the card says "Searched
+  becomes: ..." and lists each place "Taken out"; with `remove_searched` it is refused before the
+  card); the same question again updates its entry, once per request: a second update of the same
+  entry in one request is refused before the card with the entry as it reads (`_logged`, by entry
+  id, cleared by `BeginRequest`; for other programs an update counts for ten minutes); the card shows the entry as it
   will read, whether it updates one, and each place a removal takes out; a removal that matches
   nothing, or from an entry that isn't there, is refused before the card
   (`AssistantTool.RefuseBeforeAsking`, through `Write`'s `refuse`), giving the entry's searched
-  places; the answer says what was removed and gives the entry as saved, in `research_context`'s
-  form, so the reply can report what is in the tree.  Added after a test on 15 November 2026 in which
+  places; the answer says in words what changed ("Searched: 2 places added, none removed; it now
+  holds 14 places."), what was removed, suggests tidying with `replace_searched` when the list holds
+  more than 12 places, and gives the entry as saved, in `research_context`'s form, so the reply can
+  report what is in the tree.  Replacing, the guard and the answer in words were added after a
+  test the same day in which, asked to tidy an entry, the model sent a short list thirteen times
+  and each call added it to the list.  Added after a test on 15 November 2026 in which
   the model said it had taken FreeBMD out of a log, which `log_research` couldn't do), `add_note`
   (a person's or a couple's notes: adds `[15 Nov 2026] text  Source: source` after what is there,
   never replaces it; the same text already there is not added again; the card shows the whole
@@ -2148,7 +2157,9 @@ sections 22.2 and 25.4):
 - A place goes in a log's searched list only when a search ran there and its results were read;
   a search form, a refused site or a failed page is not a search, and goes in next steps.  To take
   a place out of a searched list, call `log_research` with `remove_searched`, and say it was
-  removed only when the entry the tool gives back no longer lists it.
+  removed only when the entry the tool gives back no longer lists it.  Log each question once per
+  request, when its searches are done; to tidy a searched list, send the whole list once with
+  `replace_searched`.
 - Never offer anything that costs money (a certificate, a subscription) or needs the person's
   sign-in; list it in the log's next steps for them, with the search to run.
 - "All", "both", "all of them" or "do all three" means every one in this request, then one report;
@@ -2321,6 +2332,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | 15 November 2026 | 0.4.0 (unreleased) | The pane's line of pages read (`AssistantTools.PagesRead`, 22.2); a search form at a bare address is flagged (`WebFetch.BareSearchForm`, 25.4). |
 | 15 November 2026 | 0.4.0 (unreleased) | `log_research` can take places out of a searched list (`remove_searched`, `ResearchLog.Matching`, 7, 22.3), refuses a removal that matches nothing before the card, keeps the result when none is given, and gives back the entry as saved; the rule (25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | After a third test: `update_person` and `update_place` change notes over 400 characters only by a passage (`notes_edit`), with the passage before and after on the card; `replace_text` names each field on its card and refuses a replacement that would break a name (`ReplaceRefusal`, `TreeTools.Replaced`) (22.3); the rule on short instructions and side effects (25.5). |
+| 15 November 2026 | 0.4.1 (unreleased) | `log_research` tidies: `replace_searched` (`ResearchLog.Record`'s `replaceSearched`, 7), one update of an entry per request (`_logged`), and an answer that says what changed in words (22.3); the rule (25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice B: the person panel's Research tab and a couple's log on its family card, the Research question window (15.2); Tools' research to-do (15.5); `PersonEditor.OpenTab` and `--person-tab` (14, 15.2); the sample tree's invented entries and the `person-research` help picture (28). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice A: `ResearchEntry` and `Research` on people and families, left out of the file while empty (5, 6); `ResearchLog` (7), joined by merging and combining (7.1), carried by tree merges (7.2), searched by Find (7.3), not in GEDCOM (11); `log_research`, research text checks on it and `add_note`, the log in `research_context`, `get_person` and `get_family` (22.3, 68 tools); rules (22.2, 25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |
