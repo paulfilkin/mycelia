@@ -136,6 +136,17 @@ These are Mycelia's own, under the category Relationships.
 - A record with no name, or with only "?" or "Unknown" as its names: "Has no name, or only "?" or "Unknown"."  Some programs record an unknown spouse this way.  Such a record is a placeholder, not a person: give it the name once it is known, or use Make unknown spouse to leave the spouse unknown.  The Assistant names such a record rather than adding the person again.
 - A family with no partners is not flagged: Add sibling makes one to hold siblings whose parents are not recorded.
 
+## Research log
+
+Mycelia's own, following the genealogist's habit of keeping a research log beside the tree.
+
+- A person or a couple has a research log: one entry per research question, such as "Death, 3 Nov 1871, Hebden Bridge", linked to the fact it is about where there is one.
+- An entry holds where has been searched (short names and scope, such as "FreeBMD deaths 1870-72 (Ashworth, Ashworthe)"), what came of it in a sentence, what to try next, its status (Open, Found or Not found) and the day it last changed.
+- Researching the same question again updates its entry: the places searched are added, and the result, status and next steps replaced.  A log reads as one line per question, never a diary of attempts.
+- Notes hold what is known about the person.  A record that confirms something becomes a fact with a citation; searches, unconfirmed leads and next steps go in the research log; notes keep the context that fits neither.
+- Text in the log and in notes added by the Assistant is short, in the third person, and never addressed to the reader.
+- The log is kept in the tree file; GEDCOM 5.5.1 has no place for it, so it is not exported.
+
 ## Index sorting
 
 - Sort orders: family name, given name, birth date, marriage date, death date.  There is no sort by place.

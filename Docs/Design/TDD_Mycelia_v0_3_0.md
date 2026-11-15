@@ -183,11 +183,12 @@ repository, `S` source, `M` media, `H` historical event.
 
 | Entity | Fields |
 | --- | --- |
-| `Person` | Given, Surname, Suffix, Sex (Male, Female, Unknown), Notes, PhotoMediaId, Private, Facts, SpouseOrder (family ids, the first preferred; empty means none set), PreferredParentsId (the parent family chosen as preferred; null means none chosen) |
+| `Person` | Given, Surname, Suffix, Sex (Male, Female, Unknown), Notes, PhotoMediaId, Private, Facts, SpouseOrder (family ids, the first preferred; empty means none set), PreferredParentsId (the parent family chosen as preferred; null means none chosen), Research (the research log, `ResearchEntry` list; null while empty) |
 | `Fact` | TypeId, Date (text as typed), PlaceId, Description, Preferred (default true), Private, Note, Citations |
 | `Citation` | SourceId, Detail (page, folio, entry), Url (the record's web address), Accessed (date as typed), Text (an extract of the record) |
-| `Family` | Partner1Id, Partner2Id, Type (`CoupleType`), Status (`CoupleStatus`), Notes, Facts, Children |
+| `Family` | Partner1Id, Partner2Id, Type (`CoupleType`), Status (`CoupleStatus`), Notes, Facts, Children, Research (as on Person) |
 | `ChildLink` | PersonId, Nature1 and Nature2 (`ChildNature` to each partner) |
+| `ResearchEntry` | Id (prefix `Q`), Topic ("Death, 3 Nov 1871, Hebden Bridge"), FactId (optional), Status (`ResearchStatus` Open, Found, NotFound), Searched (short names), Result (a sentence or two), Next (next steps), Updated (a date) |
 | `Place` | Name (most local part first, comma separated), Latitude, Longitude, Notes |
 | `Repository` | Name, Address, Phone, Email |
 | `Source` | Title, Author, Publisher, PublisherLocation, PublishDate, RepositoryId, CallNumber, Url, Comments |
@@ -250,8 +251,10 @@ enumerations as their names, null properties omitted.  Derived properties are `[
 `TreeDocument.Save` writes `<path>.tmp` and moves it over the target, then clears the dirty flag;
 there is no backup copy.  `TreeDocument.Load` reads a file and keeps its path; a file that
 deserialises to nothing becomes an empty tree.  `FormatVersion` is 1 and is not yet checked on
-load.  Fields added later are left out while empty (`PreferredParentsId`), so a tree that doesn't
+load.  Fields added later are left out while empty (`PreferredParentsId`, and `Research` on people
+and families, which is null rather than an empty list for that reason), so a tree that doesn't
 use them is written as before, and an older copy of the program reads a newer file, ignoring them.
+An older copy that then saves the file drops what it ignored: preferred parents and research logs.
 
 The document's title is the file name without extension, or the tree's name when unsaved.
 `Created` and `Modified` are local times; `Modified` is set on every change and on save.
@@ -307,6 +310,15 @@ Edits are building blocks meant to be called inside `Change` (section 8):
   families that are now empty, or one-partner families with no children and no facts, and moves
   the home person to the first person when needed.
 - `PrunePlaces` removes places no fact uses that have no coordinates and no notes.
+- **Research log** (`Model/ResearchLog.cs`, Design considerations, Research log): one `ResearchEntry`
+  per research question on a person or a family.  `Record(owner, factId, topic, status, searched,
+  result, next, today)` finds the entry for the same question (the same fact when one is given,
+  else the same topic ignoring case and spacing) and updates it: the places searched are added
+  without repeats, and the status, result and next steps replaced (a Found or NotFound entry given
+  no next steps loses its old ones); otherwise it adds one.  `Combine(into, from)` joins two logs
+  when people are merged or families combined: an entry for the same question is combined, keeping
+  the later one's result, status and next steps.  `Tidy` sets an emptied log back to null.  The
+  log is kept in the `.ftree` file only; GEDCOM export leaves it out (section 11).
 - `Counts()` gives people, families, places, sources, media and distinct surnames for the home
   page and status bar.
 
@@ -334,6 +346,8 @@ chosen again and Swap exchanges them.  Opened from the main menu, the person pan
   combined away prefer the one kept.
 - Preferred parents: the kept record's, else the merged record's, cleared when it is not one of the
   kept person's parent families after the merge.
+- Research logs are joined (`ResearchLog.Combine`), as are the logs of two families that become one.
+- The home person and the history follow; empty families are removed.
 
 **Combining two families** (`PersonMerge.CombineFamilies(doc, first, second)`, run inside one
 `Change` by Combine with... in the Family tab and by the Assistant's `combine_families`).
@@ -342,9 +356,8 @@ other partner: a family with the spouse unknown and one with the spouse, or the 
 Two different named spouses are refused; if they are one person, Merge comes first.  `KeptFamily`
 is the one with the spouse, else the first given.  The other family's children join, keeping their
 relationship to the shared partner; children from a family with the spouse unknown become Natural
-children of the kept family's spouse.  Couple facts are combined as in Merge, notes joined, and
-spouse orders and preferred parents naming the removed family name the kept one.
-- The home person and the history follow; empty families are removed.
+children of the kept family's spouse.  Couple facts are combined as in Merge, notes and research
+logs joined, and spouse orders and preferred parents naming the removed family name the kept one.
 
 **Duplicates** (`PersonMerge.FindDuplicates`): people grouped by Soundex of the surname; within a
 group, a pair is a candidate when the sexes do not conflict, the first given names agree (equal; a
@@ -363,7 +376,7 @@ each with a reason ("similar name, both born 1856, same birth place").
 **Merge another tree** (File > Import and export > Merge another tree into this one...).
 `TreeImport.Read` reads a `.ftree` or a GEDCOM file; `MergeInto(doc, other)`, inside one `Change`,
 adds everything in it under new ids (a person's spouse order and preferred parents follow their
-families' new ids).  Places are matched by name (`GetOrCreatePlace`),
+families' new ids; research logs come with their people and families).  Places are matched by name (`GetOrCreatePlace`),
 repositories by name, sources by title and author, custom fact types by name and scope, media by
 file path and historical events by title and date; matched items are shared, not doubled.  People
 are never matched: the window then offers Find duplicate people (section 7.1), which is how the
@@ -421,7 +434,8 @@ paths back, would point at files that are gone.  Undo leaves the copies in the f
   converted only when the test (`TreeTools.NeedsMixedCase`, run on "Given /Surname/") says so;
   in practice that is every name with a surname.  Spacing round brackets is left as it is.
 - **Find and replace** (Edit, Ctrl+F, `Dialogs.FindAndReplace`): `TreeTools.Find` lists every text
-  field holding the words (names, person and couple notes, fact descriptions and notes, citation
+  field holding the words (names, person and couple notes, research logs (each entry's topic,
+  result, places searched and next steps), fact descriptions and notes, citation
   details and extracts, place names, source title, author, publisher and comments, media caption and
   description), with match case and whole words; each hit can be unticked; Replace ticked rewrites
   them (`TreeTools.Replace`) as one step.  Changing the words, match case or whole words clears
@@ -570,7 +584,9 @@ DATE); `TRLR`.  A fact writes its tag with the description as value, or "Y" when
 detail, then DATE (`ToGedcom`: `ABT`, `BEF`, `AFT`, `CAL`, `BET x AND y`, `B.C.`, double
 dates), PLAC, NOTE and `SOUR` with `PAGE`, `DATA` `TEXT`, `WWW` and `_ACCESSED`.  Values longer than 200 characters continue on `CONC`
 lines and line breaks on `CONT` lines, one level down.  Cross-references are numbered in list order
-(`@I1@`, `@F1@`, `@S1@`, `@R1@`, `@M1@`).
+(`@I1@`, `@F1@`, `@S1@`, `@R1@`, `@M1@`).  Research logs are not written: GEDCOM 5.5.1 has no place
+for them, and folding them into NOTE would bring back the clutter they replace (not built: an export
+option for them).
 
 A custom fact writes `EVEN` (or `FACT`) with a `TYPE` line naming it.
 
@@ -1296,7 +1312,7 @@ saved conversation, but a restored one can no longer revert.
 
 ### 22.3 Built-in tools (`Ai/Tools/AssistantTools*.cs`)
 
-67 tools in five partial files: `AssistantTools.cs` (the context, what the model may see, lookups,
+68 tools in five partial files: `AssistantTools.cs` (the context, what the model may see, lookups,
 the change helper and Revert), `.Read.cs`, `.Change.cs`, `.Files.cs` (moving around and files) and
 `.Research.cs` (section 25).
 `MainWindow` implements `IToolHost` for what they need from the window: the settings, the workspace
@@ -1308,17 +1324,18 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   unsaved state, the workspace on show, the date style, how living people are given, the selected
   and home people; the same object goes into the system prompt); `search_people` (name words,
   Soundex surname, sex, birth and death years, a place, living or not; 50 a page, at most 200, with
-  `next_offset`); `get_person` (names, sex, notes, facts with their ids, the date as typed and as
+  `next_offset`); `get_person` (names, sex, notes, the research log, facts with their ids, the date as typed and as
   read, place, description, note, sources and flags, in `FactOrder`; parents with how the child is
   related to each partner, the preferred set first and marked `preferred` when there are two or
   more; spouse families with marriage and children; media; the relationship to
   the home person; data warnings from `DataChecker`); `research_context` (for the person and their
   nearest relatives, parents, spouses, children, siblings and half-siblings, with `generations: 2`
-  also grandparents and grandchildren: each one's kinship wording, notes in full and facts in brief,
-  type, date as typed, place, description, the fact's note and a count of sources; and the facts
-  and notes of the couples between them.  Withheld people and Private facts follow section 22.4 as
-  everywhere; notes are not shortened, since they are kept for short genealogical findings);
-  `get_family`; `get_ancestors` (Ahnentafel
+  also grandparents and grandchildren: each one's kinship wording, notes in full, research log and
+  facts in brief, type, date as typed, place, description, the fact's note and a count of sources;
+  and the facts, notes and research logs of the couples between them.  A log entry is given as
+  topic, fact id, status, places searched and next steps joined by "; ", result and date.  Withheld
+  people and Private facts follow section 22.4 as everywhere; notes are not shortened, since they
+  are kept for short findings); `get_family` (with the couple's research log); `get_ancestors` (Ahnentafel
   numbers, 4 generations, at most 7); `get_descendants` (3 generations, at most 5); `get_relationship`
   (`Kinship` wording and path); `get_timeline` (`Timeline`, family and historical optional);
   `list_places` / `get_place` (with its facts in date order); `list_sources` / `get_source` (with its
@@ -1336,10 +1353,13 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   child, spouse or sibling of someone, as the person editor's Add buttons do: a spouse joins an open
   single-parent family first; a spouse for someone who already has a partner with no name is
   refused, see below), `update_person` (also `preferred_parents`, a family id checked as one of
-  the person's parent families), `add_note` (a person's or a couple's notes: adds
-  `[15 Nov 2026] text  Source: source` after what is there, never replaces it; refuses empty text;
-  the same text already there is not added again; the card shows the whole paragraph, so it is the
-  offer to the person; the result names the owner only as `Ref` would), `delete_person`, `merge_people`, `set_home_person`,
+  the person's parent families), `log_research` (a person's or a couple's research log through
+  `ResearchLog.Record`: owner, `fact_id` or `topic` (made from the fact when left out: type, date as
+  typed, the place's short name), status, `searched`, `result`, `next`; the same question again
+  updates its entry; the card shows the entry as it will read and whether it updates one), `add_note`
+  (a person's or a couple's notes: adds `[15 Nov 2026] text  Source: source` after what is there,
+  never replaces it; the same text already there is not added again; the card shows the whole
+  paragraph), `delete_person`, `merge_people`, `set_home_person`,
   `set_bookmark` (not an undo step, as bookmarks never are), `add_fact` (to a person or a family;
   the type by name, GEDCOM tag or id, with a suggestion for a near miss; the place found or made by
   name; a date the program can't read is kept and reported), `update_fact`, `delete_fact` (the next
@@ -1373,6 +1393,16 @@ typed (`FactLabel`: "the Birth (Abt. 1801) of Hannah Sutcliffe"), so a citation 
 the wrong fact can be seen before it is approved.  `link_child`'s card adds the child's parents in
 any other family ("Arthur Ashworth is already a child of Thomas Ashworth & Ellen Barraclough."), so
 a person of the same name from another family can be seen before it is linked.
+
+**Research text.**  `log_research` and `add_note` keep what they write short and readable, and
+refuse, before changing anything and with the reason, what would clutter the tree: text in the
+first or second person ("I searched", "we", "you could"), which is an account or a message rather
+than a finding; a search address (an `http` address with a query) as a place searched or a source;
+a result over 300 characters, a topic over 80, a searched place or next step over 150, or more
+than five next steps; and for `add_note`, a note over 400 characters, a line break or a bullet.
+Both turn a long or medium dash between spaces into a comma.  `add_note` removes a date the model
+wrote at the start ("11 Nov 2026, ..." with any dash or colon after it), since it stamps its own.  Added after a test on 15 November 2026 in which
+three searches for one death left three long paragraphs in a person's notes (section 25.5).
 
 **Partners with no name.**  A person whose given name and surname are each empty, "?" or "Unknown"
 (`IsUnnamed`) stands for someone not yet identified.  `add_person` as a spouse, and `link_spouse`
@@ -1993,19 +2023,27 @@ the program doesn't have:
   `link_child`'s approval card now names the child's parents in any other family (section 22.3).
 
 Added on 15 November 2026 at the person's request, so research builds on what the family's notes
-already hold and leaves what it finds where it will help later:
+and logs already hold and leaves what it finds where it will help later.  A first version sent
+findings to notes with `add_note`; in a test the same day, three searches for one death left three
+long paragraphs in the notes (the model's own wrong date, first-person accounts, next steps, an
+offer to the person, search addresses as sources), so searches went to a research log instead:
 
 - Before researching someone, call `research_context` and read their own and their relatives'
-  facts and notes; use `generations: 2` when parents or children leave gaps.
-- As research goes, add anything that could help later to the notes of the person it is about,
-  with `add_note` and its source, whether or not that is the person being researched.  A lead not
-  yet confirmed goes in labelled unconfirmed, with what would confirm it.  No asking first: the
-  approval card shows the paragraph and the person decides.
-- When a finding about one person bears on another, say so in the reply and note it on each person
-  it concerns.
-- The notes rule (here, in the general rules and in `AssistantTools.NoteRule`) now says an
-  unconfirmed lead may go in when labelled, with its source and what would confirm it; questions,
-  offers and messages to the person still never do.
+  facts, notes and research logs; don't search again what a log shows was searched unless there is
+  a new reason (a spelling, a date range, a source not tried); use `generations: 2` when parents
+  or children leave gaps.
+- Record every research question with `log_research` on the person or couple it is about, whether
+  or not that is the person being researched: where was searched (short names, never search
+  addresses), what came of it in a sentence, what to try next.  The same question again updates
+  its entry.  No asking first: the approval card shows the entry and the person decides.
+- A record that confirms something becomes a fact with a citation, and its entry is set to Found.
+  `add_note` is only for context that fits no fact and is no search.  A lead not yet confirmed goes
+  in the log as Open, with what would confirm it.
+- When a finding about one person bears on another, say so in the reply and record it for each
+  person it concerns.
+- The notes rule (in the general rules and in `AssistantTools.NoteRule`) says searches, unconfirmed
+  leads and next steps belong in the research log, not in notes; questions, offers and messages to
+  the person never go in the tree.
 
 ---
 
@@ -2157,6 +2195,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | --- | --- | --- |
 | 15 November 2026 | 0.4.0 (unreleased) | Save shows unsaved changes (accent, a dot and its tooltip, 14); a button's green focus frame shows only for keyboard focus (`KeyboardFocusFrame`, 16), so Save no longer looks "saved" after a click. |
 | 15 November 2026 | 0.4.0 (unreleased) | The Assistant's new conversation button is a speech bubble with a plus (`I.NewConversation`), and the Assistant shows the Mycelia mark in colour on the top bar, its panel header and empty state (`FoldPanel.IconImage`, `UiKit.EmptyState`'s picture), replacing `I.Assistant` (16, 16.1, 22.1, 26.1). |
+| 15 November 2026 | 0.4.0 (unreleased) | The research log, slice A: `ResearchEntry` and `Research` on people and families, left out of the file while empty (5, 6); `ResearchLog` (7), joined by merging and combining (7.1), carried by tree merges (7.2), searched by Find (7.3), not in GEDCOM (11); `log_research`, research text checks on it and `add_note`, the log in `research_context`, `get_person` and `get_family` (22.3, 68 tools); rules (22.2, 25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |
 | 12 November 2026 | 0.3.0 | The first real update, 0.2.0 to 0.3.0 through the published release, worked end to end (23). |
 | 11 November 2026 | 0.3.0 | Releases go through multifariousRelease (20); this design record copied from `TDD_Mycelia_v0_2_0.md` for 0.3.0. |

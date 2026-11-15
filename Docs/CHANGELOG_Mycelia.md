@@ -7,13 +7,19 @@ understand what changed without reading the diff.
 
 ### New
 
-- **Research that builds on the family's notes.**  Before researching someone, the Assistant now
-  reads their facts and notes and those of their nearest relatives (parents, husband or wife,
-  children, brothers and sisters, and grandparents and grandchildren when needed), so what you
-  have already noted guides where it looks.  As it researches, it adds what could help later to
-  the notes of whoever it is about, not only the person you asked about, as dated paragraphs with
-  their source, after what is already there.  Each addition asks first, showing the whole
-  paragraph.  Leads it could not confirm are labelled as such, with what would confirm them.
+- **A research log for each person and couple.**  Each research question is one short entry: what
+  it is about (such as a death in 1871), where has been searched, what came of it, what to try
+  next, and whether it is open, found or not found.  Researching the same question again updates
+  its entry instead of adding another, so the log stays one line per question.  It is kept in the
+  tree file and is not written to GEDCOM.
+- **Research that builds on what the family's records already hold.**  Before researching someone,
+  the Assistant reads their facts, notes and research log, and those of their nearest relatives
+  (parents, husband or wife, children, brothers and sisters, and grandparents and grandchildren
+  when needed), so it knows what has been searched already and doesn't search it again.  As it
+  researches, it logs each question on whoever it is about, not only the person you asked about.
+  A record it finds becomes a fact with a citation; notes are kept for short context that fits
+  nowhere else, and it no longer writes long accounts, lists or next steps into them.  Each entry
+  and note asks first, showing exactly what will be added.
 
 ### Changed
 
@@ -31,9 +37,12 @@ understand what changed without reading the diff.
 
 ### Internal
 
-- Two new Assistant tools, `research_context` and `add_note` (67 tools).  The notes rule given to
-  the AI model now allows an unconfirmed lead when it is labelled, with its source and what would
-  confirm it.
+- Three new Assistant tools, `research_context`, `log_research` and `add_note` (68 tools).
+  `log_research` and `add_note` refuse text in the first or second person, search addresses as
+  sources, and text longer than a sentence or two.
+- `ResearchEntry` and a `Research` list on people and families, left out of the tree file while
+  empty, so trees without a log are written as before.  An older copy of Mycelia opens a tree with
+  a log but loses the log if it saves the tree.
 
 ## 0.3.0 - 11 November 2026
 

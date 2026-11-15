@@ -28,6 +28,7 @@ public static class PersonMerge
         if (keep.Sex == Sex.Unknown) keep.Sex = merge.Sex;
         keep.Private |= merge.Private;
         keep.Notes = JoinText(keep.Notes, merge.Notes);
+        keep.Research = ResearchLog.Combine(keep.Research, merge.Research);
         keep.PhotoMediaId ??= merge.PhotoMediaId;
 
         MergeFacts(keep.Facts, merge.Facts);
@@ -125,6 +126,7 @@ public static class PersonMerge
             foreach (var c in b.Children)
                 if (!a.Children.Any(x => x.PersonId == c.PersonId)) a.Children.Add(c);
             a.Notes = JoinText(a.Notes, b.Notes);
+            a.Research = ResearchLog.Combine(a.Research, b.Research);
             // Children who preferred the family combined away prefer the one it went into.
             foreach (var p in doc.Data.People.Where(p => p.PreferredParentsId == b.Id)) p.PreferredParentsId = a.Id;
             families.RemoveAt(j);
@@ -187,6 +189,7 @@ public static class PersonMerge
         }
         MergeFacts(keep.Facts, other.Facts);
         keep.Notes = JoinText(keep.Notes, other.Notes);
+        keep.Research = ResearchLog.Combine(keep.Research, other.Research);
         foreach (var p in doc.Data.People)
         {
             if (p.PreferredParentsId == other.Id) p.PreferredParentsId = keep.Id;

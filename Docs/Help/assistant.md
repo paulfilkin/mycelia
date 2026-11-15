@@ -145,15 +145,28 @@ Each reply has a **Copy** button under it.  It copies the reply with its formatt
 
 The Assistant can help you decide where to look, search open archives, bring records into the tree and cite them.
 
-### Building on the family's notes
+### Building on the family's notes and research log
 
-Before it researches someone, the Assistant reads their facts and notes and those of their nearest relatives: parents, husband or wife, children, brothers and sisters, and when that leaves gaps, grandparents and grandchildren too.  What you have already noted about the family (an address, an occupation, a family story, a record you found) tells it whom to look for and where.
+Before it researches someone, the Assistant reads their facts, notes and research log, and those of their nearest relatives: parents, husband or wife, children, brothers and sisters, and when that leaves gaps, grandparents and grandchildren too.  What you have already recorded about the family tells it whom to look for and where, and the research log tells it what has been searched already, so it doesn't search it again.
 
-As it researches, it adds what could help later to the notes of the person it is about, whether or not that is the person you asked about.  A census entry that names a grandchild goes on the grandchild's notes as well.  Each addition is a dated paragraph with where it came from, such as "[15 Nov 2026] Listed as a lodger at 12 Mill Street, Bootle, in the 1891 census.  Source: RG12/2956, folio 40."  It is added after what is there; nothing in your notes is changed.  A lead it could not confirm is labelled unconfirmed, with what would confirm it.
+As it researches, it keeps a **research log** for each person or couple a question is about, whether or not that is the person you asked about.  Each research question is one short entry:
 
-Each addition asks first: the card shows whose notes and the whole paragraph, and **Decline** leaves the notes as they are.  If you come to trust it, **Always allow** lets it add notes without asking (see [Approvals](#approvals)).
+> **Death, 3 Nov 1871, Hebden Bridge** · Not found · 15 Nov 2026
+> Searched: FreeBMD deaths 1870-72 (Ashworth, Ashworthe); TNA Discovery; web obituaries.
+> Result: no index entry, burial or probate found online.
+> Next: GRO online index, Dec quarter 1871, Todmorden; Heptonstall burials (West Yorkshire Archive Service).
 
-Living people and anything marked Private stay out of what it reads, as everywhere else (see [What the AI model sees](#what-the-ai-model-sees)).
+When the same question is researched again, its entry is updated rather than a new one added: the new places searched join the list, and the result, status and next steps change.
+
+What it finds goes where it belongs:
+
+- A record that confirms something becomes a fact with a citation, such as a Residence fact for a census address, and its log entry is marked found.
+- A search that finds nothing, a lead it couldn't confirm, and what to try next go in the research log.
+- Notes are only for context that fits neither, in a sentence or two, such as how two records were matched.  Nothing in your notes is changed; a note is added after what is there.
+
+Each entry and note asks first: the card shows it as it will read, and **Decline** leaves the tree as it is.  If you come to trust it, **Always allow** lets it record without asking (see [Approvals](#approvals)).
+
+Living people and anything marked Private stay out of what it reads, as everywhere else (see [What the AI model sees](#what-the-ai-model-sees)).  The research log is kept in the tree file and is not written to GEDCOM files.
 
 ### Where to look
 

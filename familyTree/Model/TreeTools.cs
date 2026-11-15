@@ -135,7 +135,7 @@ public static class TreeTools
 
     /// <summary>
     /// Every text field holding <paramref name="query"/>: names, fact descriptions and notes, person and
-    /// couple notes, place names, source titles, authors, publishers and comments, citation details,
+    /// couple notes, their research logs (topic, result, places searched, next steps), place names, source titles, authors, publishers and comments, citation details,
     /// media captions and descriptions.
     /// </summary>
     public static List<TextHit> Find(TreeDocument doc, string query, bool matchCase, bool wholeWord)
@@ -147,6 +147,25 @@ public static class TreeTools
         {
             if (regex.IsMatch(get())) hits.Add(new TextHit(owner, field, get, set, person));
         }
+        // The research log: each entry's topic, result, and every place searched and next step.
+        void CheckResearch(string owner, IEnumerable<ResearchEntry>? log, Person? person)
+        {
+            foreach (var e in log ?? [])
+            {
+                Check(owner, "Research: topic", () => e.Topic, v => e.Topic = v, person);
+                Check(owner, $"Research ({e.Topic}): result", () => e.Result, v => e.Result = v, person);
+                for (var i = 0; i < e.Searched.Count; i++)
+                {
+                    var n = i;
+                    Check(owner, $"Research ({e.Topic}): searched", () => e.Searched[n], v => e.Searched[n] = v, person);
+                }
+                for (var i = 0; i < e.Next.Count; i++)
+                {
+                    var n = i;
+                    Check(owner, $"Research ({e.Topic}): next step", () => e.Next[n], v => e.Next[n] = v, person);
+                }
+            }
+        }
 
         foreach (var p in doc.Data.People)
         {
@@ -155,6 +174,7 @@ public static class TreeTools
             Check(who, "Surname", () => p.Surname, v => p.Surname = v, p);
             Check(who, "Suffix", () => p.Suffix, v => p.Suffix = v, p);
             Check(who, "Notes", () => p.Notes, v => p.Notes = v, p);
+            CheckResearch(who, p.Research, p);
             foreach (var f in p.Facts)
             {
                 Check(who, $"{f.Type.Name}: description", () => f.Description, v => f.Description = v, p);
@@ -171,6 +191,7 @@ public static class TreeTools
             var who = doc.CoupleName(fam);
             var person = doc.GetPerson(fam.Partner1Id) ?? doc.GetPerson(fam.Partner2Id);
             Check(who, "Notes", () => fam.Notes, v => fam.Notes = v, person);
+            CheckResearch(who, fam.Research, person);
             foreach (var f in fam.Facts)
             {
                 Check(who, $"{f.Type.Name}: description", () => f.Description, v => f.Description = v, person);

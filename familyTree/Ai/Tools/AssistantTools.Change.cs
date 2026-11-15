@@ -16,7 +16,7 @@ public sealed partial class AssistantTools
     /// Added to every notes parameter: a test with a real model (11 November 2026) wrote "please advise if want me to
     /// search..." into a person's notes.
     /// </summary>
-    private const string NoteRule = " Notes are part of the tree, read by anyone who opens it later: what is known and where it came from, never questions, suggestions or messages to the person (say those in your reply). A lead not yet confirmed belongs in notes when it says it is unconfirmed, gives its source and says what would confirm it.";
+    private const string NoteRule = " Notes are part of the tree, read by anyone who opens it later: what is known and where it came from, never questions, suggestions or messages to the person (say those in your reply). Searches, unconfirmed leads and next steps go in the research log (log_research), not in notes.";
 
     private IEnumerable<AssistantTool> ChangeTools() =>
     [
@@ -58,12 +58,25 @@ public sealed partial class AssistantTools
                 return $"Change {NameOf(args)}: {string.Join(", ", parts)}.";
             }),
 
+        Write("log_research", "Log research",
+            "Records research on one question in a person's or a couple's research log: where was searched, what came of it and what to try next. One entry per question: logging the same fact or topic again updates that entry (the places searched are added, the status, result and next steps replaced), so never repeat it as a new one. Use it for every search, found or not, and for anyone in the tree the question is about. A record that confirms something also becomes a fact with a citation (add_fact, add_citation); set status Found. Write in the third person, briefly.",
+            Schema.Object(
+                ("owner_id", Schema.String("The person's id, or a family's id for a couple's question (a marriage, a divorce)."), true),
+                ("fact_id", Schema.String("The fact the question is about, when there is one (get_person gives fact ids)."), false),
+                ("topic", Schema.String("What the question is about, briefly: \"Death, 3 Nov 1871, Hebden Bridge\". Optional when fact_id is given."), false),
+                ("status", Schema.String("Open (still looking), Found or NotFound.", "Open", "Found", "NotFound"), true),
+                ("searched", Schema.Array(Schema.String("A place searched, by short name and scope: \"FreeBMD deaths 1870-72 (Ashworth, Ashworthe)\", \"TNA Discovery\". Never a search address."), "Where was searched this time."), false),
+                ("result", Schema.String("What came of it, in a sentence or two, third person: \"No index entry, burial or probate found online.\""), true),
+                ("next", Schema.Array(Schema.String("One next step: \"GRO online index, Dec quarter 1871, Todmorden\"."), "What to try next (replaces the entry's next steps)."), false)),
+            LogResearch,
+            DescribeLogResearch),
+
         Write("add_note", "Add to notes",
-            "Adds a dated paragraph to the end of a person's or a couple's notes; what is there already is kept. Use it as research goes, for anything that could help later about anyone in the tree, not only the person being researched: a record that names them, an address, an occupation, a church, a relationship, a lead. The person sees the paragraph on the approval card and decides." + NoteRule,
+            "Adds one short dated paragraph to the end of a person's or a couple's notes; what is there already is kept. Only for context that fits no fact and is no search: a family story, how two records were matched, an address that isn't a residence fact. Searches and their outcomes go in log_research; a record found becomes a fact with add_fact and add_citation. One or two sentences, third person, no list." + NoteRule,
             Schema.Object(
                 ("owner_id", Schema.String("The person's id, or a family's id for a couple's notes."), true),
-                ("text", Schema.String("The finding, in a sentence or two."), true),
-                ("source", Schema.String("Where it came from: the record, its reference or web address."), false)),
+                ("text", Schema.String($"The finding, in one or two sentences, at most {NoteMaxChars} characters."), true),
+                ("source", Schema.String("Where it came from, briefly: the record and its reference, or the record's own address (never a search address)."), false)),
             AddNote,
             args => $"Add to the notes of {OwnerNameOf(args.Str("owner_id"))}: \"{NoteParagraph(args)}\""),
 
@@ -696,22 +709,142 @@ public sealed partial class AssistantTools
         args.Bool("another_partner", false) && p is not null && UnnamedPartner(p, except) is not null
             ? $"  {p.DisplayName} already has a partner with no name." : "";
 
+    // ---- research text: short, third person, no search addresses ----
+    // From a test on 15 November 2026: three searches for one death left three long paragraphs in the notes, with the
+    // model's own wrong date, first-person accounts, "next recommended steps", an offer to the person and search
+    // addresses as sources.  The log takes the searches; these checks keep both it and the notes readable.
+
+    private const int NoteMaxChars = 400, ResultMaxChars = 300, TopicMaxChars = 80, ItemMaxChars = 150, NextMaxItems = 5;
+
+    private static readonly System.Text.RegularExpressions.Regex FirstOrSecondPerson =
+        new(@"\b(I|I'm|I've|I'd|I'll|we|We|we've|We've|you|You|your|Your)\b", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static readonly System.Text.RegularExpressions.Regex LeadingDate =
+        new(@"^\s*\[?\s*(\d{1,2}\s+[A-Za-z]{3,9}\.?\s+\d{4}|\d{4}-\d{2}-\d{2})\s*\]?\s*[-:,\u2013\u2014]*\s*", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Plain text for the tree: dashes become commas, runs of spaces one space, the ends trimmed.</summary>
+    private static string Plain(string text) =>
+        System.Text.RegularExpressions.Regex.Replace(text.Replace(" \u2014 ", ", ").Replace(" \u2013 ", ", ").Replace("\u2014", ", "), @"[ \t]+", " ").Trim();
+
+    /// <summary>A web address with a query (a search page), which says nothing a reader can follow up.</summary>
+    private static bool IsSearchAddress(string text) =>
+        System.Text.RegularExpressions.Regex.IsMatch(text, @"https?://\S*\?\S*=", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Refuses text written as an account or a message: the tree holds what is known, in the third person.</summary>
+    private static void CheckThirdPerson(string text, string field)
+    {
+        if (FirstOrSecondPerson.Match(text) is { Success: true } m)
+            throw new ArgumentException($"{field} says \"{m.Value}\": write it in the third person, as a finding (\"No entry found in...\"), with no account of what you did and nothing addressed to the person.  Say those in your reply.");
+    }
+
+    // ---- log_research ----
+
+    private (object Owner, Fact? Fact, string Topic, ResearchStatus Status, List<string> Searched, string Result, List<string>? Next) ResearchArgs(JsonObject args)
+    {
+        var (owner, facts, _) = OwnerArg(args.Str("owner_id"));
+        Fact? fact = null;
+        if (args.Str("fact_id") is { } factId)
+            fact = facts.FirstOrDefault(f => f.Id == factId) ?? throw new ArgumentException($"{factId} isn't one of that owner's facts; get_person or get_family lists them.");
+        var topic = Plain(args.Str("topic") ?? "");
+        if (topic.Length == 0 && fact is not null)
+            // Short: the date as typed and the most local part of the place ("Death, 3 Nov 1871, Hebden Bridge").
+            topic = string.Join(", ", new[] { fact.Type.Name, fact.Date.Trim(), Doc.GetPlace(fact.PlaceId)?.ShortName ?? "" }.Where(s => s.Length > 0));
+        if (topic.Length == 0) throw new ArgumentException("Give topic (what the question is about), or fact_id.");
+        if (topic.Length > TopicMaxChars) throw new ArgumentException($"topic is {topic.Length} characters; keep it under {TopicMaxChars}, such as \"Death, 3 Nov 1871, Hebden Bridge\".");
+        var status = EnumArg(args, "status", ResearchStatus.Open);
+        var result = Plain(args.Str("result") ?? "");
+        if (result.Length == 0) throw new ArgumentException("result is required: what came of the search, in a sentence.");
+        if (result.Length > ResultMaxChars) throw new ArgumentException($"result is {result.Length} characters; keep it under {ResultMaxChars}: what came of it, not how.");
+        CheckThirdPerson(result, "result");
+        var searched = args.Strings("searched").Select(Plain).Where(s => s.Length > 0).ToList();
+        foreach (var s in searched)
+        {
+            if (IsSearchAddress(s)) throw new ArgumentException($"\"{s}\" is a search address: give the site's name and what was searched, such as \"FreeBMD deaths 1876-78\".");
+            if (s.Length > ItemMaxChars) throw new ArgumentException($"A searched place is {s.Length} characters; keep each under {ItemMaxChars}.");
+        }
+        List<string>? next = null;
+        if (args["next"] is not null)
+        {
+            next = args.Strings("next").Select(Plain).Where(s => s.Length > 0).ToList();
+            if (next.Count > NextMaxItems) throw new ArgumentException($"Give at most {NextMaxItems} next steps, the most useful first.");
+            foreach (var s in next)
+            {
+                if (s.Length > ItemMaxChars) throw new ArgumentException($"A next step is {s.Length} characters; keep each under {ItemMaxChars}.");
+                CheckThirdPerson(s, "A next step");
+            }
+        }
+        return (owner, fact, topic, status, searched, result, next);
+    }
+
+    private string LogResearch(JsonObject args)
+    {
+        var a = ResearchArgs(args);
+        var whose = OwnerForModel(a.Owner);
+        ResearchEntry? entry = null;
+        var created = false;
+        Change(() =>
+        {
+            (entry, created) = ResearchLog.Record(a.Owner, a.Fact?.Id, a.Topic, a.Status, a.Searched, a.Result, a.Next, DateTime.Today);
+            return "";
+        });
+        return $"{(created ? "Added" : "Updated")} the research entry \"{entry!.Topic}\" ({StatusWords(entry.Status)}) in the log of {whose}.";
+    }
+
+    private static string StatusWords(ResearchStatus s) => s switch { ResearchStatus.Found => "found", ResearchStatus.NotFound => "not found", _ => "open" };
+
+    /// <summary>The approval card: the entry as it will read, and whether it updates one already there.</summary>
+    private string DescribeLogResearch(JsonObject args)
+    {
+        string topic;
+        try { topic = ResearchArgs(args).Topic; }
+        catch (ArgumentException) { topic = args.Str("topic") ?? "a research question"; }
+        var owner = Doc.GetPerson(args.Str("owner_id")) as object ?? Doc.GetFamily(args.Str("owner_id"));
+        var existing = owner is null ? null : ResearchLog.Find(owner, args.Str("fact_id"), topic);
+        string status;
+        try { status = StatusWords(EnumArg(args, "status", ResearchStatus.Open)); }
+        catch (ArgumentException) { status = args.Str("status") ?? "open"; }
+        var lines = new List<string> { $"{(existing is null ? "Log" : "Update")} research for {OwnerNameOf(args.Str("owner_id"))}: {topic} ({status})." };
+        if (args.Strings("searched") is { Count: > 0 } searched) lines.Add("Searched: " + string.Join("; ", searched) + ".");
+        if (args.Str("result") is { } result) lines.Add("Result: " + Plain(result));
+        if (args.Strings("next") is { Count: > 0 } next) lines.Add("Next: " + string.Join("; ", next) + ".");
+        return string.Join("  ", lines);
+    }
+
+    /// <summary>A person's or family's name for a result to the model, only as Ref would give it (TDD 22.4).</summary>
+    private string OwnerForModel(object owner) => owner switch
+    {
+        Person q => IdOnly(q) ? q.Id : q.DisplayName,
+        Family f => new[] { Doc.GetPerson(f.Partner1Id), Doc.GetPerson(f.Partner2Id) }.OfType<Person>().Any(IdOnly) ? $"family {f.Id}" : Doc.CoupleName(f),
+        _ => "",
+    };
+
     // ---- add_note ----
+
+    /// <summary>The finding as add_note keeps it: a date the model wrote at the start removed, dashes made commas.</summary>
+    private static string NoteText(JsonObject args) => Plain(LeadingDate.Replace(args.Str("text") ?? "", ""));
 
     /// <summary>The paragraph add_note adds: "[15 Nov 2026] The finding.  Source: the record."</summary>
     private static string NoteParagraph(JsonObject args)
     {
-        var text = args.Str("text")?.Trim() ?? "";
-        var source = args.Str("source")?.Trim();
+        var text = NoteText(args);
+        var source = Plain(args.Str("source") ?? "");
         var stamp = DateTime.Today.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
-        return $"[{stamp}] {text}" + (string.IsNullOrEmpty(source) ? "" : $"  Source: {source}");
+        return $"[{stamp}] {text}" + (source.Length == 0 ? "" : $"  Source: {source}");
     }
 
     private string AddNote(JsonObject args)
     {
         var (owner, _, _) = OwnerArg(args.Str("owner_id"));
-        if (string.IsNullOrWhiteSpace(args.Str("text"))) throw new ArgumentException("text is required: the finding to add.");
-        var text = args.Str("text")!.Trim();
+        var raw = args.Str("text") ?? "";
+        if (string.IsNullOrWhiteSpace(raw)) throw new ArgumentException("text is required: the finding to add.");
+        if (raw.Trim().Contains('\n') || raw.Contains('•'))
+            throw new ArgumentException("Give one paragraph with no list or line breaks.  A search and its outcome go in log_research.");
+        var text = NoteText(args);
+        if (text.Length > NoteMaxChars) throw new ArgumentException($"The note is {text.Length} characters; keep it under {NoteMaxChars}, one or two sentences.  A search and its outcome go in log_research.");
+        CheckThirdPerson(text, "The note");
+        var source = Plain(args.Str("source") ?? "");
+        if (IsSearchAddress(source)) throw new ArgumentException("source is a search address: give the record and its reference, or the record's own address.");
+        if (source.Length > 200) throw new ArgumentException("source is too long: give the record and its reference briefly.");
         var notes = owner is Person p ? p.Notes : ((Family)owner).Notes;
         // The same finding twice (on another day, say) is not added again.
         if (notes.Contains(text, StringComparison.Ordinal))
@@ -719,12 +852,7 @@ public sealed partial class AssistantTools
         var paragraph = NoteParagraph(args);
         var joined = notes.TrimEnd().Length == 0 ? paragraph : notes.TrimEnd() + Environment.NewLine + Environment.NewLine + paragraph;
         // Names go to the model only as Ref gives them (TDD 22.4).
-        var whose = owner switch
-        {
-            Person q => IdOnly(q) ? q.Id : q.DisplayName,
-            Family f => new[] { Doc.GetPerson(f.Partner1Id), Doc.GetPerson(f.Partner2Id) }.OfType<Person>().Any(IdOnly) ? $"family {f.Id}" : Doc.CoupleName(f),
-            _ => "",
-        };
+        var whose = OwnerForModel(owner);
         return Change(() =>
         {
             if (owner is Person person) person.Notes = joined;

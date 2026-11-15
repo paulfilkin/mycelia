@@ -36,7 +36,7 @@ public sealed partial class AssistantTools
             Schema.Object(("person_id", Schema.String("The person's id."), true)), GetPerson),
 
         Read("research_context", "Gather research context",
-            "Before researching someone: their facts and notes, and those of their nearest relatives (parents, spouses, children, brothers and sisters including half; with generations 2 also grandparents and grandchildren), each with how they are related, and the facts and notes of the couples between them. Read it first, to see what the family's notes already hold, whom to look for and where, and how a finding about one person bears on another. Facts are brief; get_person gives one person's sources in full.",
+            "Before researching someone: their facts, notes and research log (what has been searched already, with what result and what to try next), and those of their nearest relatives (parents, spouses, children, brothers and sisters including half; with generations 2 also grandparents and grandchildren), each with how they are related, and the facts and notes of the couples between them. Read it first, to see what the family's notes already hold, whom to look for and where, and how a finding about one person bears on another. Facts are brief; get_person gives one person's sources in full.",
             Schema.Object(
                 ("person_id", Schema.String("The person being researched."), true),
                 ("generations", Schema.Integer("1 (default): parents, spouses, children and siblings; 2 adds grandparents and grandchildren."), false)),
@@ -296,6 +296,7 @@ public sealed partial class AssistantTools
         json["living"] = Living.IsLiving(doc, p);
         if (p.Private) json["private"] = true;
         json["notes"] = p.Notes;
+        if (ResearchJson(p.Research) is { } log) json["research_log"] = log;
         json["facts"] = FactsJson(p.Facts, json);
         var media = doc.Data.Media.Where(m => m.PersonIds.Contains(p.Id)).ToList();
         if (media.Count > 0)
@@ -353,7 +354,28 @@ public sealed partial class AssistantTools
         if (Withheld(q) is not null) return json;
         json["notes"] = q.Notes;
         json["facts"] = BriefFacts(q.Facts, json);
+        if (ResearchJson(q.Research) is { } log) json["research_log"] = log;
         return Compact(json);
+    }
+
+    /// <summary>
+    /// A research log as the model reads it, one compact entry per question, so it can see what has been searched and
+    /// not search it again (TDD 22.3, 25.5); null when there is none.
+    /// </summary>
+    private static JsonArray? ResearchJson(IEnumerable<ResearchEntry>? log)
+    {
+        var entries = (log ?? []).ToList();
+        if (entries.Count == 0) return null;
+        return new JsonArray(entries.Select(e => (JsonNode)Compact(new JsonObject
+        {
+            ["topic"] = e.Topic,
+            ["fact_id"] = e.FactId,
+            ["status"] = e.Status.ToString(),
+            ["searched"] = e.Searched.Count == 0 ? null : string.Join("; ", e.Searched),
+            ["result"] = e.Result,
+            ["next"] = e.Next.Count == 0 ? null : string.Join("; ", e.Next),
+            ["updated"] = e.Updated.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture),
+        })).ToArray());
     }
 
     private JsonObject CoupleContext(Family f)
@@ -367,6 +389,7 @@ public sealed partial class AssistantTools
         {
             json["notes"] = f.Notes;
             json["facts"] = BriefFacts(f.Facts, json);
+            if (ResearchJson(f.Research) is { } log) json["research_log"] = log;
         }
         return Compact(json);
     }
@@ -410,6 +433,7 @@ public sealed partial class AssistantTools
         {
             json["facts"] = FactsJson(f.Facts, json);
             json["notes"] = f.Notes;
+            if (ResearchJson(f.Research) is { } log) json["research_log"] = log;
         }
         json["children"] = new JsonArray(f.Children.Select(c => doc.GetPerson(c.PersonId) is { } child
             ? (JsonNode)Compact(new JsonObject

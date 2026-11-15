@@ -132,6 +132,12 @@ public sealed class Person : Observable
     /// </summary>
     public string? PreferredParentsId { get; set; }
 
+    /// <summary>
+    /// The research log: one entry per research question about this person (ResearchLog, TDD 5).  Null while empty, so
+    /// the file holds nothing for people without one.
+    /// </summary>
+    public List<ResearchEntry>? Research { get; set; }
+
     /// <summary>Show surnames in capitals wherever names are displayed (Design considerations, Names).</summary>
     public static bool SurnamesInCapitals { get; set; }
 
@@ -256,10 +262,46 @@ public sealed class Family : Observable
     public List<Fact> Facts { get; set; } = [];
     public List<ChildLink> Children { get; set; } = [];
 
+    /// <summary>The couple's research log (a marriage or divorce question); null while empty, as on Person.</summary>
+    public List<ResearchEntry>? Research { get; set; }
+
     [JsonIgnore] public Fact? Marriage => Facts.FirstOrDefault(f => f.TypeId == FactTypes.Marriage && f.Preferred) ?? Facts.FirstOrDefault(f => f.TypeId == FactTypes.Marriage);
 
     public bool HasPartner(string id) => Partner1Id == id || Partner2Id == id;
     public string? OtherPartner(string id) => Partner1Id == id ? Partner2Id : Partner2Id == id ? Partner1Id : null;
+}
+
+/// <summary>Where a research question stands.</summary>
+public enum ResearchStatus { Open, Found, NotFound }
+
+/// <summary>
+/// One research question in a person's or a couple's log: what it is about, where has been searched, what came of it and
+/// what to try next.  Researching the same question again updates the entry (ResearchLog.Record) rather than adding one,
+/// so the log stays one line per question (TDD 5, Design considerations, Research log).
+/// </summary>
+public sealed class ResearchEntry
+{
+    public string Id { get; set; } = Ids.New('Q');
+
+    /// <summary>What the question is about: "Death, 3 Nov 1871, Hebden Bridge".</summary>
+    public string Topic { get; set; } = "";
+
+    /// <summary>The fact the question is about, when there is one.</summary>
+    public string? FactId { get; set; }
+
+    public ResearchStatus Status { get; set; } = ResearchStatus.Open;
+
+    /// <summary>Where has been searched, by short name: "FreeBMD deaths 1870-72 (Ashworth, Ashworthe)".</summary>
+    public List<string> Searched { get; set; } = [];
+
+    /// <summary>What came of it, in a sentence or two.</summary>
+    public string Result { get; set; } = "";
+
+    /// <summary>What to try next.</summary>
+    public List<string> Next { get; set; } = [];
+
+    /// <summary>The day the entry last changed.</summary>
+    public DateTime Updated { get; set; } = DateTime.Today;
 }
 
 public sealed class Place : Observable
