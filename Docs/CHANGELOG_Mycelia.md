@@ -3,7 +3,7 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
-## 0.4.0 - unreleased
+## 0.4.0 - 15 November 2026
 
 A research log for each person and couple, research that builds on what the family's records
 already hold, and an Assistant that can't claim searches or changes it didn't make.
