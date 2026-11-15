@@ -5,6 +5,9 @@ understand what changed without reading the diff.
 
 ## 0.4.0 - unreleased
 
+A research log for each person and couple, research that builds on what the family's records
+already hold, and an Assistant that can't claim searches or changes it didn't make.
+
 ### New
 
 - **A research log for each person and couple.**  Each research question is one short entry: what
