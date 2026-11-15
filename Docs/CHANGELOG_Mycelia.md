@@ -5,7 +5,8 @@ understand what changed without reading the diff.
 
 ## 0.4.1 - unreleased
 
-Tidying a research log in one step, without the Assistant going round in circles.
+Tidying a research log in one step, the research log in the Person view, and an Assistant that
+leaves your view as it is.
 
 ### Changed
 
