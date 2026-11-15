@@ -11,19 +11,34 @@ public sealed partial class AssistantTools
 {
     private static readonly string[] Workspaces = ["Home", "People", "Person", "Places", "Sources", "Media", "Charts", "Tools"];
 
+    /// <summary>The parts of a person select_person can open (TDD 22.3).</summary>
+    private static readonly string[] PersonParts = ["Facts", "Timeline", "Family", "Notes", "Research", "Media"];
+
     private IEnumerable<AssistantTool> MoveTools() =>
     [
+        // From a test on 15 November 2026: after tidying a research log, the model opened the Person view, which took the
+        // person away from the Research tab they were reading.  The view now stays as it is unless asked for.
         Read("select_person", "Go to a person",
-            "Selects a person and centres the tree on them, as clicking them does, optionally opening their Person view, so the person sees who you mean.",
+            "Selects a person and centres the tree on them, as clicking them does, so the person sees who you mean. It keeps the view the person has open in the People workspace (the Tree view or the Person view); give view only when the person asks for one. tab opens one part of the person, such as Research after logging research.",
             Schema.Object(
                 ("person_id", Schema.String("Who."), true),
-                ("open_person_view", Schema.Boolean("Open the People workspace's Person view (default false: the Tree view)."), false)),
+                ("view", Schema.String("Tree or Person, only when the person asked for that view.", "Tree", "Person"), false),
+                ("tab", Schema.String("The part to open: Facts, Timeline, Family, Notes, Research or Media (the Person view shows Facts, Timeline and Research; another part opens the Tree view's person panel, and Timeline the Person view).", PersonParts), false)),
             args =>
             {
                 var p = PersonArg(args);
+                // open_person_view is the argument's old name; programs that learnt it still work.
+                var view = args.Str("view") ?? (args.Bool("open_person_view", false) ? "Person" : null);
+                if (view is not null && !view.Equals("Tree", StringComparison.OrdinalIgnoreCase) && !view.Equals("Person", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("view must be Tree or Person.");
+                var tab = args.Str("tab");
+                if (tab is not null && !PersonParts.Contains(tab, StringComparer.OrdinalIgnoreCase))
+                    throw new ArgumentException($"tab must be one of: {string.Join(", ", PersonParts)}.");
                 _state.Select(p, focus: true);
-                _host.Navigate(args.Bool("open_person_view", false) ? "Person" : "People");
-                return new JsonObject { ["selected"] = Ref(p) };
+                // No view asked for: the People workspace as the person left it.
+                _host.Navigate(view is null ? "People" : view.Equals("Person", StringComparison.OrdinalIgnoreCase) ? "Person" : "Tree");
+                if (tab is not null) _host.ShowPersonPart(tab);
+                return new JsonObject { ["selected"] = Ref(p), ["view"] = _host.Workspace == "Person" ? "Person" : "Tree", ["tab"] = tab };
             }, "Selected"),
 
         Read("show_workspace", "Show a workspace",

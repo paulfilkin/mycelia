@@ -18,6 +18,12 @@ Tidying a research log in one step, without the Assistant going round in circles
   instead of trying again.
 - **The Assistant is told what each log change did, in words**, such as "2 places added, none
   removed; it now holds 14 places", and when a list is long, how to offer tidying it.
+- **The Person view shows the research log.**  Beside **Facts** and **Timeline**, a **Research** switch
+  shows the person's log with its open questions counted, and the same buttons as the person
+  panel's Research tab.
+- **The Assistant leaves your view as it is.**  When it selects someone to show you a change, it
+  keeps the Tree or Person view you have open, and opens the part it changed, such as Research after
+  logging research.  Before, it could switch you to the Person view, which had no research log.
 
 ## 0.4.0 - 15 November 2026
 

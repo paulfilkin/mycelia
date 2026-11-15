@@ -154,6 +154,23 @@ public partial class PeopleView : UserControl, IWorkspace
 
     public void ShowPersonView() => ViewPerson.IsChecked = true;
 
+    public void ShowTreeView() => ViewTree.IsChecked = true;
+
+    /// <summary>
+    /// Opens part of the selected person by name: in the Person view, Facts, Timeline or Research; otherwise the person
+    /// panel's tab (Facts, Family, Notes, Research, Media) on the Tree view.  For the Assistant's select_person.
+    /// </summary>
+    public void ShowPersonPart(string part)
+    {
+        if (_state is null) return;
+        // The timeline is only in the Person view.
+        if (part.Equals("Timeline", StringComparison.OrdinalIgnoreCase)) ShowPersonView();
+        if (IsPersonViewShown && _personView!.ShowPart(part)) return;
+        ShowTreeView();
+        PersonEditor.OpenTab = part;
+        _editor!.Load(_state.Selected);
+    }
+
     /// <summary>Whether the Person view is on show rather than the Tree view.</summary>
     public bool IsPersonViewShown => ViewPerson.IsChecked == true;
 

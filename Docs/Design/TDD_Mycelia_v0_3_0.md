@@ -699,7 +699,7 @@ second with a sample exchange that sends nothing, and, with `--screenshot` only,
 the window's size (default 1440x900, never below the minimum) and `--fold <keys>` to fold panels by
 their settings key, comma-separated, `Assistant` for the Assistant, and `--options "<tab>"` for a
 picture of the Options window at that tab instead; `--person-tab <name>` to open the person panel
-on that tab (`PersonEditor.OpenTab`, for the Research tab's help picture); `--noautoupdate` to skip the start-up update
+on that tab (`PersonEditor.OpenTab`, for the Research tab's help picture), and with `--workspace Person` that part of the Person view (Facts, Timeline or Research, `PeopleView.ShowPersonPart` once the window has loaded); `--noautoupdate` to skip the start-up update
 check) and shows `MainWindow`.  `--mcp-relay` (with `--port <n>` for the check program) opens no
 window at all: it is the relay of section 24.  `App.OnExit` starts a verified update's installer
 (section 23).  An unhandled dispatcher
@@ -915,6 +915,12 @@ box, undo-grouped; the person's notes are separate.
   amber for history), the event with its detail, and the age.  Family events and Historical events
   check boxes choose what is shown, and Historical events... opens the manager.  Clicking a family
   event shows that relative.
+- *Research:* a third part of the switch, "Research" with its open questions counted ("Research
+  (1)"), shows the person's research log as on the person panel's Research tab (`ResearchList.Build`,
+  with Edit, Mark found or Reopen, Delete and Add research question); the heading reads "Research
+  log".  `PersonView.ShowPart` opens Facts, Timeline or Research by name, waiting for the view to
+  load when it hasn't.  Added after a test on 15 November 2026 in which the Assistant opened the
+  Person view after logging research, which then showed no log.
 - *Details* (right, 400 wide): for Name, the given names, surname and suffix fields; for Sex, a sex
   box; for a fact, its heading ("Marriage of A & B" for couple facts) and the fact form.  Edits
   refresh the table 250 ms after typing.
@@ -1318,7 +1324,7 @@ instructions; `server__tool` names; British English and simple Markdown); the tr
 program reads, checked with `parse_date`; places most local part first; cite every fact taken from a
 record with `add_citation`, and never record an inference as a recorded fact; partner 1 is the man
 where known; never guess or search for a withheld living person's details; say what changed in a
-short list and select the person concerned; save only when asked; read before changing, and
+short list and select the person concerned, opening the part changed (Research after logging research) and never changing the view or workspace the person has open unless asked; save only when asked; read before changing, and
 search before adding a person; cite a record on the fact for the event it records, adding that
 fact when it is missing; split a citation the person gives into `add_citation`'s fields and add
 nothing it doesn't say; name a parent or partner recorded with no name rather than adding a
@@ -1387,7 +1393,14 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   (`PersonMerge`); `tree_statistics`; `find_text` (`TreeTools.Find`, a preview for `replace_text`);
   `parse_date`; `date_calculator` (age between, birth from age with "Cal." to record, event from
   age, as Tools' calculator); `soundex`.
-- **Moving around:** `select_person` (selects and centres, optionally opening the Person view),
+- **Moving around:** `select_person` (selects and centres; keeps the People workspace's view, Tree or
+  Person, unless `view` asks for one, so the person isn't taken away from what they are reading;
+  `tab` opens a part of the person, Facts, Timeline, Family, Notes, Research or Media, through
+  `IToolHost.ShowPersonPart` and `PeopleView.ShowPersonPart`: the Person view's Facts, Timeline or
+  Research when it is shown, else the person panel's tab on the Tree view, and Timeline the Person
+  view; `open_person_view`, the old argument, still means view Person; the result gives the view
+  and tab; added after a test on 15 November 2026 in which the model opened the Person view after
+  logging research),
   `show_workspace`, `show_chart` (kind, person, generations), `read_help` (the help pages built
   into the program, section 28: with a question, the three best-matching sections, each with its
   address on GitHub; with a page, its section headings or one section whole; with neither, every
@@ -1411,10 +1424,10 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   places; the answer says in words what changed ("Searched: 2 places added, none removed; it now
   holds 14 places."), what was removed, suggests tidying with `replace_searched` when the list holds
   more than 12 places, and gives the entry as saved, in `research_context`'s form, so the reply can
-  report what is in the tree.  Replacing, the guard and the answer in words were added after a
-  test the same day in which, asked to tidy an entry, the model sent a short list thirteen times
-  and each call added it to the list.  Added after a test on 15 November 2026 in which
-  the model said it had taken FreeBMD out of a log, which `log_research` couldn't do), `add_note`
+  report what is in the tree.  Removing was added after a test on 15 November 2026 in which the
+  model said it had taken FreeBMD out of a log, which `log_research` couldn't do; replacing, the
+  guard and the answer in words after another the same day, in which, asked to tidy an entry, the
+  model sent a short list thirteen times and each call added it to the list), `add_note`
   (a person's or a couple's notes: adds `[15 Nov 2026] text  Source: source` after what is there,
   never replaces it; the same text already there is not added again; the card shows the whole
   paragraph), `delete_person`, `merge_people`, `set_home_person`,
@@ -2295,7 +2308,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
   servers, Other programs, Options and updates, Keyboard shortcuts, Questions and troubleshooting.
 - **Pictures** (`Docs/Help/images/`) are made from the sample tree by `tools/help-shots.ps1`, which
   runs the program in screenshot mode once per picture (`--workspace`, `--assistant-demo`,
-  `--person-tab Research`, `--options "<tab>"`, `--options "MCP Helper"`) and scales each to 1600
+  `--person-tab Research`, with `--workspace Person` for `person-view-research`, `--options "<tab>"`, `--options "MCP Helper"`) and scales each to 1600
   pixels wide.  The sample tree's home person, Arthur Ashworth, has two invented research questions
   so the Research tab and the research to-do have something to show.  Screenshot
   mode reads no settings, so the pictures show nobody's own tree, key or server.  Windows it cannot
@@ -2333,6 +2346,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | 15 November 2026 | 0.4.0 (unreleased) | `log_research` can take places out of a searched list (`remove_searched`, `ResearchLog.Matching`, 7, 22.3), refuses a removal that matches nothing before the card, keeps the result when none is given, and gives back the entry as saved; the rule (25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | After a third test: `update_person` and `update_place` change notes over 400 characters only by a passage (`notes_edit`), with the passage before and after on the card; `replace_text` names each field on its card and refuses a replacement that would break a name (`ReplaceRefusal`, `TreeTools.Replaced`) (22.3); the rule on short instructions and side effects (25.5). |
 | 15 November 2026 | 0.4.1 (unreleased) | `log_research` tidies: `replace_searched` (`ResearchLog.Record`'s `replaceSearched`, 7), one update of an entry per request (`_logged`), and an answer that says what changed in words (22.3); the rule (25.5). |
+| 15 November 2026 | 0.4.1 (unreleased) | The Person view's Research part (`PersonView.ShowPart`, 15.2); `select_person` keeps the view and opens a part with `tab` (`IToolHost.ShowPersonPart`, 22.3); `--person-tab` with `--workspace Person` (14) and the `person-view-research` help picture (28); the rule on keeping the person's view (22.2). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice B: the person panel's Research tab and a couple's log on its family card, the Research question window (15.2); Tools' research to-do (15.5); `PersonEditor.OpenTab` and `--person-tab` (14, 15.2); the sample tree's invented entries and the `person-research` help picture (28). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice A: `ResearchEntry` and `Research` on people and families, left out of the file while empty (5, 6); `ResearchLog` (7), joined by merging and combining (7.1), carried by tree merges (7.2), searched by Find (7.3), not in GEDCOM (11); `log_research`, research text checks on it and `add_note`, the log in `research_context`, `get_person` and `get_family` (22.3, 68 tools); rules (22.2, 25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |

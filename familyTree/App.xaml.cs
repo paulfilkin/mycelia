@@ -34,6 +34,7 @@ public partial class App : Application
         var assistantDemo = false;
         string? size = null;
         string? fold = null;
+        string? personTab = null;
         for (var i = 0; i < e.Args.Length; i++)
         {
             if (e.Args[i] == "--screenshot" && i + 1 < e.Args.Length) screenshot = e.Args[++i];
@@ -44,7 +45,7 @@ public partial class App : Application
             else if (e.Args[i] == "--fold" && i + 1 < e.Args.Length) fold = e.Args[++i];
             else if (e.Args[i] == "--options" && i + 1 < e.Args.Length) options = e.Args[++i];
             // --person-tab Research: the person panel opens on that tab (for help pictures).
-            else if (e.Args[i] == "--person-tab" && i + 1 < e.Args.Length) Ui.Views.PersonEditor.OpenTab = e.Args[++i];
+            else if (e.Args[i] == "--person-tab" && i + 1 < e.Args.Length) Ui.Views.PersonEditor.OpenTab = personTab = e.Args[++i];
             else if (e.Args[i] == "--noautoupdate") Updates.UpdateService.NoAutoUpdate = true;
             else if (!e.Args[i].StartsWith("--", StringComparison.Ordinal)) open = e.Args[i];
         }
@@ -83,6 +84,9 @@ public partial class App : Application
                 dialog.Show();
             }
             if (workspace is not null) window.Navigate(workspace);
+            // --person-tab with the Person view: its Facts, Timeline or Research, once the window has loaded (the panel's tab is set above).
+            if (workspace == "Person" && personTab is not null)
+                window.Dispatcher.BeginInvoke(() => window.PeopleView.ShowPersonPart(personTab), System.Windows.Threading.DispatcherPriority.ContextIdle);
             // The Assistant pane, optionally with a sample exchange for check pictures (nothing is sent).
             if (assistant || assistantDemo) window.ShowAssistant(assistantDemo);
             // --fold People.Index,Assistant: fold those panels (screenshot mode, whose settings are never saved).

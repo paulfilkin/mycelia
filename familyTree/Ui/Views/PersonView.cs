@@ -10,8 +10,8 @@ namespace Mycelia.Ui.Views;
 /// <summary>
 /// The People workspace's Person view, opened by double-clicking someone on the tree: every fact
 /// in one table grouped as personal information, individual facts and facts shared with each
-/// spouse; the selected fact's details and sources beside it; notes below; and links to the
-/// spouse and parents across the top.
+/// spouse, or the timeline, or the research log; the selected fact's details and sources beside
+/// it; notes below; and links to the spouse and parents across the top.
 /// </summary>
 public sealed class PersonView : UserControl
 {
@@ -41,7 +41,7 @@ public sealed class PersonView : UserControl
     public PersonView(AppState state)
     {
         _state = state;
-        _refresh.Tick += (_, _) => { _refresh.Stop(); BuildRows(); BuildTimeline(); };
+        _refresh.Tick += (_, _) => { _refresh.Stop(); BuildRows(); BuildTimeline(); BuildResearch(); };
 
         var root = new DockPanel();
 
@@ -87,6 +87,7 @@ public sealed class PersonView : UserControl
         BuildNav();
         BuildRows();
         BuildTimeline();
+        BuildResearch();
         BuildDetail();
         _notesToken = new object();
         _notes.Text = person?.Notes ?? "";
@@ -168,7 +169,7 @@ public sealed class PersonView : UserControl
         DockPanel.SetDock(add, Dock.Right);
         head.Children.Add(add);
 
-        // Facts or Timeline.
+        // Facts, Timeline or Research.
         var switcher = new Border
         {
             Background = UiKit.Brush("SurfaceAlt"),
@@ -182,8 +183,12 @@ public sealed class PersonView : UserControl
         var seg = new StackPanel { Orientation = Orientation.Horizontal };
         var factsTab = new RadioButton { Style = UiKit.Res<Style>("Segment"), GroupName = "personViewMode", Content = "Facts", IsChecked = true };
         var timelineTab = new RadioButton { Style = UiKit.Res<Style>("Segment"), GroupName = "personViewMode", Content = "Timeline", ToolTip = "The life in date order, with family and historical events" };
+        _researchTab.Style = UiKit.Res<Style>("Segment");
         seg.Children.Add(factsTab);
         seg.Children.Add(timelineTab);
+        seg.Children.Add(_researchTab);
+        _factsTab = factsTab;
+        _timelineTab = timelineTab;
         switcher.Child = seg;
         DockPanel.SetDock(switcher, Dock.Left);
         head.Children.Add(switcher);
@@ -214,21 +219,60 @@ public sealed class PersonView : UserControl
         var host = new Grid();
         var factsScroll = new ScrollViewer { Content = _rows, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 0, 0, 8) };
         var timelineScroll = new ScrollViewer { Content = _timeline, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 0, 0, 8), Visibility = Visibility.Collapsed };
+        var researchScroll = new ScrollViewer { Content = _research, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(0, 0, 0, 8), Visibility = Visibility.Collapsed };
         host.Children.Add(factsScroll);
         host.Children.Add(timelineScroll);
+        host.Children.Add(researchScroll);
         dock.Children.Add(host);
 
         void Switch()
         {
             _showTimeline = timelineTab.IsChecked == true;
-            factsScroll.Visibility = _header.Visibility = add.Visibility = _showTimeline ? Visibility.Collapsed : Visibility.Visible;
+            _showResearch = _researchTab.IsChecked == true;
+            bool facts = !_showTimeline && !_showResearch;
+            factsScroll.Visibility = _header.Visibility = add.Visibility = facts ? Visibility.Visible : Visibility.Collapsed;
             timelineScroll.Visibility = _timelineOptions.Visibility = _showTimeline ? Visibility.Visible : Visibility.Collapsed;
-            _title.Text = _showTimeline ? "Timeline" : "Individual and shared facts";
+            researchScroll.Visibility = _showResearch ? Visibility.Visible : Visibility.Collapsed;
+            _title.Text = _showTimeline ? "Timeline" : _showResearch ? "Research log" : "Individual and shared facts";
             if (_showTimeline) BuildTimeline();
+            if (_showResearch) BuildResearch();
         }
         factsTab.Checked += (_, _) => Switch();
         timelineTab.Checked += (_, _) => Switch();
+        _researchTab.Checked += (_, _) => Switch();
         return dock;
+    }
+
+    // ---------------------------------------------------------------- research
+
+    // The research log (TDD 15.2), as on the person panel's Research tab, so the Person view shows it too.  From a test on
+    // 15 November 2026, in which the Assistant opened the Person view after logging research, which it then didn't show.
+    private readonly RadioButton _researchTab = new() { GroupName = "personViewMode", Content = "Research", ToolTip = "The research log: each question, where has been searched and what to try next" };
+    private readonly StackPanel _research = new();
+    private RadioButton? _factsTab, _timelineTab;
+    private bool _showResearch;
+
+    private void BuildResearch()
+    {
+        var p = _person;
+        var open = p is null ? 0 : ResearchList.OpenCount(p);
+        _researchTab.Content = open == 0 ? "Research" : $"Research ({open})";
+        _research.Children.Clear();
+        if (p is null || !_showResearch) return;
+        var sp = new StackPanel { Margin = new Thickness(16, 4, 16, 12) };
+        sp.Children.Add(ResearchList.Build(_state, p, p.DisplayName));
+        _research.Children.Add(sp);
+    }
+
+    /// <summary>Shows Facts, Timeline or Research by name; false for a name the Person view has no part for.</summary>
+    public bool ShowPart(string name)
+    {
+        var part = name.Trim().ToLowerInvariant() switch { "facts" => _factsTab, "timeline" => _timelineTab, "research" => _researchTab, _ => null };
+        if (part is null) return false;
+        // Before the view has loaded (screenshot mode's start-up), its group would put Facts back: check it once loaded.
+        if (IsLoaded) part.IsChecked = true;
+        else Dispatcher.BeginInvoke(() => part.IsChecked = true, DispatcherPriority.Loaded);
+        return true;
     }
 
     // ---------------------------------------------------------------- timeline

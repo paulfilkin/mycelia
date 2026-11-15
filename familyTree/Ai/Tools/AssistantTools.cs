@@ -17,6 +17,9 @@ public interface IToolHost
     /// <summary>Shows a workspace; "Person" is the People workspace's Person view.</summary>
     void Navigate(string workspace);
 
+    /// <summary>Opens part of the selected person (Facts, Timeline, Family, Notes, Research, Media) in the People workspace.</summary>
+    void ShowPersonPart(string part);
+
     /// <summary>Opens the Charts workspace on a kind of chart for the selected person.</summary>
     void ShowChart(ChartKind kind, int? generations);
 

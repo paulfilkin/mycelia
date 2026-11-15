@@ -186,11 +186,17 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
 
     public void Navigate(string workspace)
     {
-        // "Person" is the People workspace's Person view.
+        // "Person" is the People workspace's Person view, and "Tree" its Tree view.
         if (workspace == "Person")
         {
             Navigate("People");
             PeopleView.ShowPersonView();
+            return;
+        }
+        if (workspace == "Tree")
+        {
+            Navigate("People");
+            PeopleView.ShowTreeView();
             return;
         }
         var tab = NavTabs.Children.OfType<RadioButton>().FirstOrDefault(r => (string)r.Tag == workspace);
@@ -743,6 +749,7 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
     AssistantSettings IToolHost.Settings => _settings.Assistant;
     string IToolHost.Workspace => _workspace == "People" && PeopleView.IsPersonViewShown ? "Person" : _workspace;
     void IToolHost.Navigate(string workspace) => Navigate(workspace);
+    void IToolHost.ShowPersonPart(string part) => PeopleView.ShowPersonPart(part);
 
     void IToolHost.ShowChart(Ui.Charts.ChartKind kind, int? generations)
     {

@@ -246,6 +246,12 @@ The **Facts** and **Timeline** switch in the panel heading swaps the table for t
 
 Someone with no death recorded is taken to have lived 100 years, to decide which events fall within their life.
 
+### The research log
+
+![The Person view's research log](images/person-view-research.png)
+
+**Research** in the same switch shows the person's research log, as on the person panel's **Research** tab (see [Research](#research)), with its open questions counted: "Research (1)".  Each entry has the same **Edit...**, **Mark found**, **Mark not found** (or **Reopen**) and **Delete** buttons, and **Add research question** starts a new one.
+
 ### Notes
 
 The **Notes** panel under the table holds the person's own notes, the same notes as the person panel's **Notes** tab.  Drag the gap above it to make it taller or shorter.

@@ -78,7 +78,7 @@ this mode).  `--assistant` opens the Assistant pane; `--assistant-demo` opens it
 exchange that sends nothing.  With `--screenshot`, `--size 1080x680` sets the window's size and
 `--fold People.Index,Assistant` folds panels by their settings key, and `--options "Other programs"`
 photographs the Options window at that tab.  `--person-tab Research` opens the person panel on that
-tab.  `--mcp-relay` opens no window: it is the stdio bridge
+tab, and with `--workspace Person` that part of the Person view (Facts, Timeline or Research).  `--mcp-relay` opens no window: it is the stdio bridge
 Claude Desktop starts (TDD 24).  Without a path it opens the most recent tree, or the sample tree.
 
 There is no test project.  Verification means running the application, and for GEDCOM, importing
