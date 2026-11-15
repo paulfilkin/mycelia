@@ -3,6 +3,33 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
+## 0.4.0 - unreleased
+
+### New
+
+- **Research that builds on the family's notes.**  Before researching someone, the Assistant now
+  reads their facts and notes and those of their nearest relatives (parents, husband or wife,
+  children, brothers and sisters, and grandparents and grandchildren when needed), so what you
+  have already noted guides where it looks.  As it researches, it adds what could help later to
+  the notes of whoever it is about, not only the person you asked about, as dated paragraphs with
+  their source, after what is already there.  Each addition asks first, showing the whole
+  paragraph.  Leads it could not confirm are labelled as such, with what would confirm them.
+
+### Changed
+
+- **The Assistant's button for starting again** is now a speech bubble with a plus, "New
+  conversation".  It was a bin, which looked as if it would delete the selected person.  It still
+  asks before forgetting the conversation.
+- **The Assistant shows the Mycelia mark**, in colour, on its top bar button, in its panel's
+  header and on the empty pane, in place of a speech bubble.  The Assistant is what connects the
+  tree to its sources, which is what the mark shows.
+
+### Internal
+
+- Two new Assistant tools, `research_context` and `add_note` (67 tools).  The notes rule given to
+  the AI model now allows an unconfirmed lead when it is labelled, with its source and what would
+  confirm it.
+
 ## 0.3.0 - 11 November 2026
 
 Relationships made easier to get right, and the Assistant's research and citations corrected after

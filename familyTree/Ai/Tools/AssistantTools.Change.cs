@@ -16,7 +16,7 @@ public sealed partial class AssistantTools
     /// Added to every notes parameter: a test with a real model (11 November 2026) wrote "please advise if want me to
     /// search..." into a person's notes.
     /// </summary>
-    private const string NoteRule = " Notes are part of the tree, read by anyone who opens it later: what is known and where it came from, never questions, suggestions or messages to the person (say those in your reply).";
+    private const string NoteRule = " Notes are part of the tree, read by anyone who opens it later: what is known and where it came from, never questions, suggestions or messages to the person (say those in your reply). A lead not yet confirmed belongs in notes when it says it is unconfirmed, gives its source and says what would confirm it.";
 
     private IEnumerable<AssistantTool> ChangeTools() =>
     [
@@ -57,6 +57,15 @@ public sealed partial class AssistantTools
                 if (Doc.GetFamily(args.Str("preferred_parents")) is { } pf) parts.Add($"preferred parents {Doc.CoupleName(pf)}");
                 return $"Change {NameOf(args)}: {string.Join(", ", parts)}.";
             }),
+
+        Write("add_note", "Add to notes",
+            "Adds a dated paragraph to the end of a person's or a couple's notes; what is there already is kept. Use it as research goes, for anything that could help later about anyone in the tree, not only the person being researched: a record that names them, an address, an occupation, a church, a relationship, a lead. The person sees the paragraph on the approval card and decides." + NoteRule,
+            Schema.Object(
+                ("owner_id", Schema.String("The person's id, or a family's id for a couple's notes."), true),
+                ("text", Schema.String("The finding, in a sentence or two."), true),
+                ("source", Schema.String("Where it came from: the record, its reference or web address."), false)),
+            AddNote,
+            args => $"Add to the notes of {OwnerNameOf(args.Str("owner_id"))}: \"{NoteParagraph(args)}\""),
 
         Write("delete_person", "Delete a person",
             "Deletes a person and all of their facts. Their relatives stay in the tree.",
@@ -686,6 +695,43 @@ public sealed partial class AssistantTools
     private string UnnamedPartnerNote(JsonObject args, Person? p, Person? except = null) =>
         args.Bool("another_partner", false) && p is not null && UnnamedPartner(p, except) is not null
             ? $"  {p.DisplayName} already has a partner with no name." : "";
+
+    // ---- add_note ----
+
+    /// <summary>The paragraph add_note adds: "[15 Nov 2026] The finding.  Source: the record."</summary>
+    private static string NoteParagraph(JsonObject args)
+    {
+        var text = args.Str("text")?.Trim() ?? "";
+        var source = args.Str("source")?.Trim();
+        var stamp = DateTime.Today.ToString("d MMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
+        return $"[{stamp}] {text}" + (string.IsNullOrEmpty(source) ? "" : $"  Source: {source}");
+    }
+
+    private string AddNote(JsonObject args)
+    {
+        var (owner, _, _) = OwnerArg(args.Str("owner_id"));
+        if (string.IsNullOrWhiteSpace(args.Str("text"))) throw new ArgumentException("text is required: the finding to add.");
+        var text = args.Str("text")!.Trim();
+        var notes = owner is Person p ? p.Notes : ((Family)owner).Notes;
+        // The same finding twice (on another day, say) is not added again.
+        if (notes.Contains(text, StringComparison.Ordinal))
+            return "Those notes already hold that text; nothing was changed.";
+        var paragraph = NoteParagraph(args);
+        var joined = notes.TrimEnd().Length == 0 ? paragraph : notes.TrimEnd() + Environment.NewLine + Environment.NewLine + paragraph;
+        // Names go to the model only as Ref gives them (TDD 22.4).
+        var whose = owner switch
+        {
+            Person q => IdOnly(q) ? q.Id : q.DisplayName,
+            Family f => new[] { Doc.GetPerson(f.Partner1Id), Doc.GetPerson(f.Partner2Id) }.OfType<Person>().Any(IdOnly) ? $"family {f.Id}" : Doc.CoupleName(f),
+            _ => "",
+        };
+        return Change(() =>
+        {
+            if (owner is Person person) person.Notes = joined;
+            else ((Family)owner).Notes = joined;
+            return $"Added to the notes of {whose}.";
+        });
+    }
 
     private string UpdatePerson(JsonObject args)
     {

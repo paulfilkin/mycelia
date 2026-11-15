@@ -579,7 +579,8 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
             {
                 Key = "Assistant",
                 Title = "Assistant",
-                Icon = "Assistant",
+                // The Mycelia mark in colour, for light backgrounds, as on the top bar's Assistant button.
+                IconImage = UiKit.Res<System.Windows.Media.ImageSource>("MarkInkImage"),
                 Side = FoldSide.Right,
                 MinSize = AssistantMinWidth,
                 HeaderTools = _pane.Tools,

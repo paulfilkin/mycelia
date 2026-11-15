@@ -135,7 +135,7 @@ Conversations are kept on this computer, encrypted for your Windows account, in 
 
 A tree that has never been saved (a new tree, the sample tree, an imported GEDCOM file) keeps its conversation only while it is open; saving the tree keeps it from then on.
 
-To start again, click the clear button in the pane's header (it asks first, and a cleared conversation can't be brought back), or type `/clear` on its own and press Enter.  A very long conversation can outgrow what the AI model accepts; the pane suggests `/clear` when that seems to be the problem.
+To start again, click the new conversation button in the pane's header, a speech bubble with a plus (it asks first, and the old conversation can't be brought back), or type `/clear` on its own and press Enter.  A very long conversation can outgrow what the AI model accepts; the pane suggests `/clear` when that seems to be the problem.
 
 ## Copying replies
 
@@ -144,6 +144,16 @@ Each reply has a **Copy** button under it.  It copies the reply with its formatt
 ## Researching with the Assistant
 
 The Assistant can help you decide where to look, search open archives, bring records into the tree and cite them.
+
+### Building on the family's notes
+
+Before it researches someone, the Assistant reads their facts and notes and those of their nearest relatives: parents, husband or wife, children, brothers and sisters, and when that leaves gaps, grandparents and grandchildren too.  What you have already noted about the family (an address, an occupation, a family story, a record you found) tells it whom to look for and where.
+
+As it researches, it adds what could help later to the notes of the person it is about, whether or not that is the person you asked about.  A census entry that names a grandchild goes on the grandchild's notes as well.  Each addition is a dated paragraph with where it came from, such as "[15 Nov 2026] Listed as a lodger at 12 Mill Street, Bootle, in the 1891 census.  Source: RG12/2956, folio 40."  It is added after what is there; nothing in your notes is changed.  A lead it could not confirm is labelled unconfirmed, with what would confirm it.
+
+Each addition asks first: the card shows whose notes and the whole paragraph, and **Decline** leaves the notes as they are.  If you come to trust it, **Always allow** lets it add notes without asking (see [Approvals](#approvals)).
+
+Living people and anything marked Private stay out of what it reads, as everywhere else (see [What the AI model sees](#what-the-ai-model-sees)).
 
 ### Where to look
 

@@ -40,6 +40,14 @@ public sealed class FoldPanel : Border
 
     /// <summary>The icon's key without "I." (UiKit.Icon).</summary>
     public string Icon { get; set; } = "Tree";
+
+    /// <summary>A picture shown instead of <see cref="Icon"/>: the Assistant's panel shows the Mycelia mark in colour.</summary>
+    public ImageSource? IconImage { get; set; }
+
+    /// <summary>The header's and the strip's icon: the picture when there is one, else the line icon.</summary>
+    private FrameworkElement HeaderIcon() => IconImage is { } image
+        ? new Image { Source = image, Width = 18, Height = 18, VerticalAlignment = VerticalAlignment.Center }
+        : UiKit.Icon(Icon, 17, UiKit.Brush("Brand"));
     public FoldSide Side { get; set; } = FoldSide.Left;
 
     /// <summary>The panel's own controls, at the right of its header.</summary>
@@ -125,7 +133,7 @@ public sealed class FoldPanel : Border
         DockPanel.SetDock(right, Dock.Right);
         header.Children.Add(right);
         var title = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        title.Children.Add(UiKit.Icon(Icon, 17, UiKit.Brush("Brand")));
+        title.Children.Add(HeaderIcon());
         title.Children.Add(new TextBlock { Text = Title, Style = UiKit.Res<Style>("H3"), Margin = new Thickness(8, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
         header.Children.Add(title);
 
@@ -141,7 +149,7 @@ public sealed class FoldPanel : Border
     {
         var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 8, 0, 8) };
         stack.Children.Add(FoldButton(opening: true));
-        var icon = UiKit.Icon(Icon, 17, UiKit.Brush("Brand"));
+        var icon = HeaderIcon();
         icon.Margin = new Thickness(0, 8, 0, 10);
         icon.HorizontalAlignment = HorizontalAlignment.Center;
         stack.Children.Add(icon);

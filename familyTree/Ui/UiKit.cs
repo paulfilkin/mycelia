@@ -169,10 +169,11 @@ public static class UiKit
         return panel;
     }
 
-    public static FrameworkElement EmptyState(string icon, string title, string text)
+    /// <summary>A centred icon, title and text for an empty view; <paramref name="image"/>, when given, is shown instead of the line icon.</summary>
+    public static FrameworkElement EmptyState(string icon, string title, string text, ImageSource? image = null)
     {
         var sp = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(24) };
-        var ic = Icon(icon, 40, Brush("BorderStrong"));
+        FrameworkElement ic = image is null ? Icon(icon, 40, Brush("BorderStrong")) : new Image { Source = image, Width = 44, Height = 44 };
         ic.HorizontalAlignment = HorizontalAlignment.Center;
         sp.Children.Add(ic);
         sp.Children.Add(new TextBlock { Text = title, Style = Res<Style>("H3"), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 12, 0, 4) });

@@ -71,7 +71,8 @@
                     </Button>
                     <Button x:Name="AssistantButton" Style="{StaticResource TopBarButton}" ToolTip="Show or hide the Assistant" Click="OnAssistant">
                         <StackPanel Orientation="Horizontal">
-                            <Path Style="{StaticResource Icon}" Data="{StaticResource I.Assistant}" />
+                            <!-- The Mycelia mark in colour for the dark top bar: the Assistant is what connects the tree to its sources. -->
+                            <Image Source="{StaticResource MarkImage}" Width="18" Height="18" VerticalAlignment="Center" />
                             <TextBlock x:Name="AssistantLabel" Text="Assistant" Margin="6,0,2,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

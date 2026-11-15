@@ -35,6 +35,13 @@ public sealed partial class AssistantTools
             "Everything about one person: names, sex, notes, facts (with each date as typed and as the program reads it, place, description, sources and ids), parents and how each child is related, spouses with their families, marriages and children, media, the relationship to the home person, and data warnings. A living person's details are withheld as the context says.",
             Schema.Object(("person_id", Schema.String("The person's id."), true)), GetPerson),
 
+        Read("research_context", "Gather research context",
+            "Before researching someone: their facts and notes, and those of their nearest relatives (parents, spouses, children, brothers and sisters including half; with generations 2 also grandparents and grandchildren), each with how they are related, and the facts and notes of the couples between them. Read it first, to see what the family's notes already hold, whom to look for and where, and how a finding about one person bears on another. Facts are brief; get_person gives one person's sources in full.",
+            Schema.Object(
+                ("person_id", Schema.String("The person being researched."), true),
+                ("generations", Schema.Integer("1 (default): parents, spouses, children and siblings; 2 adds grandparents and grandchildren."), false)),
+            ResearchContext, "Gathered"),
+
         Read("get_family", "Read a family",
             "A couple or single parent: the partners, couple type and status, couple facts (marriage, divorce...) with ids, notes, and the children with how each is related to each partner.",
             Schema.Object(("family_id", Schema.String("The family's id (get_person lists them)."), true)), GetFamily),
@@ -299,6 +306,87 @@ public sealed partial class AssistantTools
         var warnings = DataChecker.CheckPerson(doc, p).Select(i => i.Message).Distinct().ToList();
         if (warnings.Count > 0) json["data_warnings"] = new JsonArray(warnings.Select(w => (JsonNode)w).ToArray());
         return Compact(json);
+    }
+
+    // ---- research_context: the person and their nearest relatives, with facts and notes (TDD 22.3, 25.5) ----
+
+    private JsonNode ResearchContext(JsonObject args)
+    {
+        var p = PersonArg(args);
+        var generations = Math.Clamp(args.Int("generations", 1), 1, 2);
+        var doc = Doc;
+        var relatives = new List<Person>();
+        void Add(IEnumerable<Person> people)
+        {
+            foreach (var x in people)
+                if (x != p && !relatives.Contains(x)) relatives.Add(x);
+        }
+        var parents = doc.Parents(p).ToList();
+        var children = doc.Children(p).ToList();
+        Add(parents);
+        Add(doc.Spouses(p));
+        Add(children);
+        Add(doc.Siblings(p));
+        Add(doc.HalfSiblings(p));
+        var families = doc.ParentFamilies(p).Concat(doc.SpouseFamilies(p)).ToList();
+        if (generations > 1)
+        {
+            Add(parents.SelectMany(doc.Parents));
+            Add(children.SelectMany(doc.Children));
+            families.AddRange(parents.SelectMany(doc.ParentFamilies));
+            families.AddRange(children.SelectMany(doc.SpouseFamilies));
+        }
+        return new JsonObject
+        {
+            ["person"] = Researched(p, null),
+            ["relatives"] = new JsonArray(relatives.Select(r => (JsonNode)Researched(r, Kinship.Describe(doc, p, r, withPath: false).Text)).ToArray()),
+            ["couples"] = new JsonArray(families.Distinct().Select(f => (JsonNode)CoupleContext(f)).ToArray()),
+        };
+    }
+
+    /// <summary>One person for research_context: how they are related, then their facts and notes in full, unless withheld.</summary>
+    private JsonObject Researched(Person q, string? relationship)
+    {
+        var json = Ref(q);
+        if (relationship is not null) json["relationship"] = relationship;
+        // Ref already says why a withheld person's details are left out.
+        if (Withheld(q) is not null) return json;
+        json["notes"] = q.Notes;
+        json["facts"] = BriefFacts(q.Facts, json);
+        return Compact(json);
+    }
+
+    private JsonObject CoupleContext(Family f)
+    {
+        var a = Doc.GetPerson(f.Partner1Id);
+        var b = Doc.GetPerson(f.Partner2Id);
+        var json = new JsonObject { ["family_id"] = f.Id, ["partner1"] = RefOrNull(a), ["partner2"] = RefOrNull(b) };
+        if ((a is not null && Withheld(a) is not null) || (b is not null && Withheld(b) is not null))
+            json["details_withheld"] = "A partner's details are withheld, so the couple's facts and notes are too.";
+        else
+        {
+            json["notes"] = f.Notes;
+            json["facts"] = BriefFacts(f.Facts, json);
+        }
+        return Compact(json);
+    }
+
+    /// <summary>Facts in brief for research_context: type, date as typed, place, description, the fact's note and how many sources.</summary>
+    private JsonArray BriefFacts(IEnumerable<Fact> facts, JsonObject into)
+    {
+        var all = FactOrder.Sorted(facts).ToList();
+        var shown = all.Where(FactVisible).ToList();
+        if (shown.Count < all.Count)
+            into["private_facts_withheld"] = all.Count - shown.Count;
+        return new JsonArray(shown.Select(f => (JsonNode)Compact(new JsonObject
+        {
+            ["type"] = f.Type.Name,
+            ["date"] = f.Date,
+            ["place"] = Doc.PlaceName(f.PlaceId),
+            ["description"] = f.Description,
+            ["note"] = f.Note,
+            ["sources"] = f.Citations.Count == 0 ? null : f.Citations.Count,
+        })).ToArray());
     }
 
     private JsonNode GetFamily(JsonObject args)

@@ -43,7 +43,8 @@ public sealed class AssistantPane : Border
         // The panel header's buttons; the header itself belongs to the FoldPanel.
         var buttons = new StackPanel { Orientation = Orientation.Horizontal };
         buttons.Children.Add(UiKit.IconButton("Copy", "Copy the conversation", (_, _) => CopyConversation()));
-        buttons.Children.Add(UiKit.IconButton("Trash", "Clear the conversation", (_, _) => ClearConversation()));
+        // A new conversation, not a bin: the bin elsewhere deletes a person, and this forgets only the conversation.
+        buttons.Children.Add(UiKit.IconButton("NewConversation", "New conversation (forgets this one)", (_, _) => ClearConversation()));
         buttons.Children.Add(UiKit.IconButton("Close", "Close the Assistant (the Assistant button brings it back)", (_, _) => _close()));
         Tools = buttons;
 
@@ -211,8 +212,9 @@ public sealed class AssistantPane : Border
         _items.Children.Clear();
         if (_session.Items.Count == 0)
         {
-            var empty = UiKit.EmptyState("Assistant", "Ask about your tree",
-                "The Assistant reads your tree and, with MCP servers set up in Options, searches record archives and catalogues.  Changes wait for your approval.");
+            var empty = UiKit.EmptyState("Note", "Ask about your tree",
+                "The Assistant reads your tree and, with MCP servers set up in Options, searches record archives and catalogues.  Changes wait for your approval.",
+                UiKit.Res<System.Windows.Media.ImageSource>("MarkInkImage"));
             empty.Margin = new Thickness(0, 60, 0, 0);
             _items.Children.Add(empty);
             return;

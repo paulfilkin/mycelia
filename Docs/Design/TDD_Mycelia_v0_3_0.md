@@ -980,7 +980,7 @@ from `Resources/Fonts` (section 26.1).  Then the icon geometries (`I.Home`, `I.P
 `I.Edit`, `I.Close`, `I.Note`, `I.Rings`, `I.Warning`, `I.Check`, `I.Lock`, `I.Bookmark`,
 `I.ArrowLeft`, `I.ArrowRight`,
 `I.Pedigree`, `I.Family`, `I.Descendants`, `I.Male`, `I.Female`, `I.ZoomIn`, `I.ZoomOut`,
-`I.Assistant`, `I.Send`, `I.Stop`, `I.Copy`, `I.Server`), the
+`I.NewConversation`, `I.Send`, `I.Stop`, `I.Copy`, `I.Server`), the
 mark and icon drawings (`MarkImage`, `MarkInkImage`, `IconImage`, `IconSmallImage`, section 26.1),
 and the styles: `H1` to `H3`, `Caption`, `SectionLabel`, `FieldLabel`, `Icon` (stroke from
 the text colour), `Card`, `Panel`, `PrimaryButton`, `SecondaryButton`, `GhostButton`,
@@ -1008,7 +1008,8 @@ application's own design.
   points the way the panel will move (towards its edge to fold, away from it to open).  Folded, the
   card becomes a strip 36 px wide holding the open button, the icon and the title written downwards;
   a click anywhere on the strip opens it again.  Its properties: `Key` (kept in the settings),
-  `Title`, `Icon`, `Side` (Left or Right), `HeaderTools`, `Body` (the content in XAML), `Size` (a
+  `Title`, `Icon`, `IconImage` (a picture shown instead of the line icon, 18 px: the Assistant's
+  panel shows `MarkInkImage`), `Side` (Left or Right), `HeaderTools`, `Body` (the content in XAML), `Size` (a
   width in pixels, or `*` for the panel that takes what is left) and `MinSize`.
 - **`FoldLayout`** places panels side by side with 12 px gaps, the same as the workspace margin.  A
   gap is a drag handle only between two open panels; next to a folded panel the gap stays and its
@@ -1199,7 +1200,8 @@ without its licence check, Trados round trip, Trados Cloud and AI Bridge.
 
 ### 22.1 Pane (`Ui/AssistantPane.cs`)
 
-The Assistant button in the top bar shows or hides a panel on the right of every workspace: a
+The Assistant button in the top bar (the Mycelia mark in colour, `MarkImage`, rather than a line
+icon: the Assistant is what connects the tree to its sources) shows or hides a panel on the right of every workspace: a
 `FoldPanel` (section 16.1) with the pane as its body, in its own column of `MainWindow`'s body
 rather than in a workspace's `FoldLayout`.  It matches the workspace panels: the same card, the
 12 px gap and right margin, its bottom 12 px above the status bar, and its top following the top
@@ -1213,7 +1215,8 @@ over the workspace's right margin and sets the width, saved as `Assistant.PaneWi
 ends.  The fold button turns the panel into a strip on the right edge (`PaneFolded`); Close hides
 it (`PaneVisible`); both are restored at start-up.
 
-The panel header shows the title with Copy conversation, Clear (asks first), Close and the fold
+The panel header shows the title with Copy conversation, New conversation (`I.NewConversation`, a
+speech bubble with a plus rather than a bin, which elsewhere deletes a person; asks first), Close and the fold
 button; under it, the model ("Anthropic · claude-sonnet-5-5") and a line counting the built-in
 tools and the connected MCP servers and their tools.  Without an API key (and not a local service) an amber banner says so, with an
 Options button that opens Options on the AI model tab.  The conversation shows:
@@ -1277,7 +1280,8 @@ search before adding a person; cite a record on the fact for the event it record
 fact when it is missing; split a citation the person gives into `add_citation`'s fields and add
 nothing it doesn't say; name a parent or partner recorded with no name rather than adding a
 second person for them; answer questions about the program from `read_help` and never describe a
-screen the help doesn't mention); the research rules (section 25.5); the current context as JSON;
+screen the help doesn't mention; an unconfirmed lead may go in notes when labelled, with its source
+and what would confirm it); the research rules (section 25.5); the current context as JSON;
 the connected servers; and the person's own instructions.
 
 **Changes made by a request.**  `IAssistantHost.BeginRequest` and `EndRequest` frame each
@@ -1287,7 +1291,7 @@ saved conversation, but a restored one can no longer revert.
 
 ### 22.3 Built-in tools (`Ai/Tools/AssistantTools*.cs`)
 
-65 tools in five partial files: `AssistantTools.cs` (the context, what the model may see, lookups,
+67 tools in five partial files: `AssistantTools.cs` (the context, what the model may see, lookups,
 the change helper and Revert), `.Read.cs`, `.Change.cs`, `.Files.cs` (moving around and files) and
 `.Research.cs` (section 25).
 `MainWindow` implements `IToolHost` for what they need from the window: the settings, the workspace
@@ -1295,7 +1299,7 @@ on show, `Navigate`, `ShowChart` (`ChartsView.Show`) and `SaveTree`.  Every tool
 thread and finds people, families, facts, places and sources by id on each call, because undo
 replaces every object (section 8); an unknown id is answered with which tool lists the ids.
 
-- **Reading (26, Allow by default with moving):** `get_context` (the tree's name, file, counts and
+- **Reading (27, Allow by default with moving):** `get_context` (the tree's name, file, counts and
   unsaved state, the workspace on show, the date style, how living people are given, the selected
   and home people; the same object goes into the system prompt); `search_people` (name words,
   Soundex surname, sex, birth and death years, a place, living or not; 50 a page, at most 200, with
@@ -1303,7 +1307,13 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   read, place, description, note, sources and flags, in `FactOrder`; parents with how the child is
   related to each partner, the preferred set first and marked `preferred` when there are two or
   more; spouse families with marriage and children; media; the relationship to
-  the home person; data warnings from `DataChecker`); `get_family`; `get_ancestors` (Ahnentafel
+  the home person; data warnings from `DataChecker`); `research_context` (for the person and their
+  nearest relatives, parents, spouses, children, siblings and half-siblings, with `generations: 2`
+  also grandparents and grandchildren: each one's kinship wording, notes in full and facts in brief,
+  type, date as typed, place, description, the fact's note and a count of sources; and the facts
+  and notes of the couples between them.  Withheld people and Private facts follow section 22.4 as
+  everywhere; notes are not shortened, since they are kept for short genealogical findings);
+  `get_family`; `get_ancestors` (Ahnentafel
   numbers, 4 generations, at most 7); `get_descendants` (3 generations, at most 5); `get_relationship`
   (`Kinship` wording and path); `get_timeline` (`Timeline`, family and historical optional);
   `list_places` / `get_place` (with its facts in date order); `list_sources` / `get_source` (with its
@@ -1321,7 +1331,10 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   child, spouse or sibling of someone, as the person editor's Add buttons do: a spouse joins an open
   single-parent family first; a spouse for someone who already has a partner with no name is
   refused, see below), `update_person` (also `preferred_parents`, a family id checked as one of
-  the person's parent families), `delete_person`, `merge_people`, `set_home_person`,
+  the person's parent families), `add_note` (a person's or a couple's notes: adds
+  `[15 Nov 2026] text  Source: source` after what is there, never replaces it; refuses empty text;
+  the same text already there is not added again; the card shows the whole paragraph, so it is the
+  offer to the person; the result names the owner only as `Ref` would), `delete_person`, `merge_people`, `set_home_person`,
   `set_bookmark` (not an undo step, as bookmarks never are), `add_fact` (to a person or a family;
   the type by name, GEDCOM tag or id, with a suggestion for a near miss; the place found or made by
   name; a date the program can't read is kept and reported), `update_fact`, `delete_fact` (the next
@@ -1974,6 +1987,21 @@ the program doesn't have:
 - In the same test the model linked a namesake from another family as the man's son.
   `link_child`'s approval card now names the child's parents in any other family (section 22.3).
 
+Added on 15 November 2026 at the person's request, so research builds on what the family's notes
+already hold and leaves what it finds where it will help later:
+
+- Before researching someone, call `research_context` and read their own and their relatives'
+  facts and notes; use `generations: 2` when parents or children leave gaps.
+- As research goes, add anything that could help later to the notes of the person it is about,
+  with `add_note` and its source, whether or not that is the person being researched.  A lead not
+  yet confirmed goes in labelled unconfirmed, with what would confirm it.  No asking first: the
+  approval card shows the paragraph and the person decides.
+- When a finding about one person bears on another, say so in the reply and note it on each person
+  it concerns.
+- The notes rule (here, in the general rules and in `AssistantTools.NoteRule`) now says an
+  unconfirmed lead may go in when labelled, with its source and what would confirm it; questions,
+  offers and messages to the person still never do.
+
 ---
 
 ## 26. The Name: Family Tree to Mycelia
@@ -2026,8 +2054,9 @@ mycelium.
 - **Drawings** (`Ui/Theme.xaml`).  The SVG paths go into WPF geometries unchanged (96 x 96): the
   shared shapes `Mark.Web`, `Mark.Roots`, `Mark.Stems`, `Mark.Sources`, `Mark.People` and
   `Mark.Core`; `MarkDrawings`, the mark for dark backgrounds as a drawing collection, used by
-  `MarkImage` (the top bar) and inside `IconImage` (the tile, Subsoil below the line, the mark at
-  90%); `MarkInkImage` for light backgrounds (Home); `IconSmallImage` (three sources, heavier
+  `MarkImage` (the top bar's logo and its Assistant button) and inside `IconImage` (the tile,
+  Subsoil below the line, the mark at 90%); `MarkInkImage` for light backgrounds (Home, the
+  Assistant panel's header and its empty state, 18 and 44 px); `IconSmallImage` (three sources, heavier
   strokes).  The update offer shows `IconImage`.  The light and one-colour variants aren't used
   yet.
 - **Icon file** (section 20): the small form up to 40 pixels and the full icon from 48, as the
@@ -2121,6 +2150,8 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 15 November 2026 | 0.4.0 (unreleased) | The Assistant's new conversation button is a speech bubble with a plus (`I.NewConversation`), and the Assistant shows the Mycelia mark in colour on the top bar, its panel header and empty state (`FoldPanel.IconImage`, `UiKit.EmptyState`'s picture), replacing `I.Assistant` (16, 16.1, 22.1, 26.1). |
+| 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |
 | 12 November 2026 | 0.3.0 | The first real update, 0.2.0 to 0.3.0 through the published release, worked end to end (23). |
 | 11 November 2026 | 0.3.0 | Releases go through multifariousRelease (20); this design record copied from `TDD_Mycelia_v0_2_0.md` for 0.3.0. |
 | 11 November 2026 | 0.3.0 | The Assistant after a third test (25.5): records cited on the fact for their event, citations given by the person carried over with nothing added, an unreadable accessed date refused (22.3), approval cards name a fact with its date (22.3), `read_help` with the help pages built in (22.3, 28; 64 tools), and a new partner refused for someone with a partner with no name unless `another_partner` (22.3).  `link_child`'s card names the child's other parents (22.3); `DetachChild` drops a family left with one partner and nothing else (7); Link existing child on a family's card leaves out only that family's children (15.2).  Linking rules shared by the program and the Assistant (7): `LinkCouple`, `SetParent` moving a child into an existing couple, `RemoveIfEmpty` for `DetachPartner` too; the Unknown spouse card's buttons fill that card (15.2); `link_spouse` fills a family with a partner missing (22.3).  Preferred parents: `Person.PreferredParentsId` (5, 6), `ParentFamilies` lists them first (7), kept through detaching, moving and merging (7, 7.1, 7.2), the first `FAMC` in GEDCOM (11), Make preferred in the Family tab (15.2), `get_person` and `update_person` (22.3).  Combining two families (`PersonMerge.CombineFamilies`, 7.1; Combine with... 15.2; `combine_families` 22.3 and 24, 65 tools), relationship checks (13), `Person.IsUnnamed` and Make unknown spouse (15.2), `HalfSiblings` (7, 15.2). |

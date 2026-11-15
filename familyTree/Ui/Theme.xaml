@@ -180,7 +180,9 @@
     <Geometry x:Key="I.Female">M12,14 A5,5 0 1 0 12,4 A5,5 0 1 0 12,14 M12,14 V21 M9,18 H15</Geometry>
     <Geometry x:Key="I.ZoomIn">M10.5,17 A6.5,6.5 0 1 0 10.5,4 A6.5,6.5 0 1 0 10.5,17 M15.2,15.2 L20,20 M7.5,10.5 H13.5 M10.5,7.5 V13.5</Geometry>
     <Geometry x:Key="I.ZoomOut">M10.5,17 A6.5,6.5 0 1 0 10.5,4 A6.5,6.5 0 1 0 10.5,17 M15.2,15.2 L20,20 M7.5,10.5 H13.5</Geometry>
-    <Geometry x:Key="I.Assistant">M4,4.5 H20 V15.5 H12 L7,19.5 V15.5 H4 Z M12,6.8 L12.9,9.1 L15.2,10 L12.9,10.9 L12,13.2 L11.1,10.9 L8.8,10 L11.1,9.1 Z</Geometry>
+    <!-- A speech bubble with a plus: a new conversation in the Assistant (the bin read as deleting the person).  The
+         Assistant itself shows the Mycelia mark (MarkImage, MarkInkImage), not a line icon. -->
+    <Geometry x:Key="I.NewConversation">M4,4.5 H20 V15.5 H12 L7,19.5 V15.5 H4 Z M12,7 V13 M9,10 H15</Geometry>
     <Geometry x:Key="I.Send">M4.5,11.5 L20,4.5 L14.5,19.5 L11.5,13 Z M11.5,13 L20,4.5</Geometry>
     <Geometry x:Key="I.Stop">M7,7 H17 V17 H7 Z</Geometry>
     <Geometry x:Key="I.Copy">M9,9 H19.5 V20.5 H9 Z M6,15 H4.5 V3.5 H15 V5.5</Geometry>
