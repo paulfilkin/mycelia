@@ -44,6 +44,16 @@ understand what changed without reading the diff.
   hadn't.  The card names each place that will go; a place that isn't in the list is refused
   before you are asked, and the Assistant is told what the list holds.  After each log change the
   Assistant is given the entry as saved, so its reply reports what is in the tree.
+- **Notes are changed a passage at a time, and the card shows the change.**  To change a
+  person's or a place's notes longer than a short paragraph, the Assistant now names the passage
+  and what replaces it, and the rest is kept exactly as it was; before, it had to retype the whole
+  notes, and the card said only whose notes would change.  The card shows the passage before and after.
+- **Replacing text names every field on its card**, and a replacement that would leave a name, a
+  place name or a source title empty or with a stray comma (", Caithness, Scotland") is refused.
+- **A short instruction stays with what you were talking about.**  Told "Remove Thurso" when the
+  research entry it had just edited didn't hold it, the Assistant searched the whole tree and
+  offered to edit another person's notes and a place.  It now says what it can't find and asks,
+  and never deletes facts, places or people, or rewrites notes, as a side effect of another change.
 - **The Assistant's button for starting again** is now a speech bubble with a plus, "New
   conversation".  It was a bin, which looked as if it would delete the selected person.  It still
   asks before forgetting the conversation.

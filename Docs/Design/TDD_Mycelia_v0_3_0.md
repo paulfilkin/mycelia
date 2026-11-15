@@ -1395,7 +1395,7 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   child, spouse or sibling of someone, as the person editor's Add buttons do: a spouse joins an open
   single-parent family first; a spouse for someone who already has a partner with no name is
   refused, see below), `update_person` (also `preferred_parents`, a family id checked as one of
-  the person's parent families), `log_research` (a person's or a couple's research log through
+  the person's parent families; notes, see "Changing notes" below), `log_research` (a person's or a couple's research log through
   `ResearchLog.Record`: owner, `fact_id` or `topic` (made from the fact when left out: type, date as
   typed, the place's short name), status, `searched`, `result` (required for a new entry; left out,
   an entry keeps its result), `next`, `remove_searched` (places to take out, by `Matching`, before
@@ -1416,7 +1416,7 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   title and web address; the record's web address, accessed date and extract, section 25; an
   accessed date the program can't read is refused before anything changes),
   `remove_citation`, `add_source`, `update_source`, `add_repository`, `update_place`
-  (coordinates checked as decimal degrees), `combine_places` (as the Places view's Combine),
+  (coordinates checked as decimal degrees; notes as `update_person`'s), `combine_places` (as the Places view's Combine),
   `link_parent`, `link_spouse`, `link_child` (each with how the child is related; `add_person`
   as a parent or spouse, `link_parent` and `link_spouse` follow the linking rules of section 7, so
   `link_spouse` fills a family with a partner missing and says how many children it already had,
@@ -1425,7 +1425,30 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   names the family removed and its children; the result gives family ids and counts, no names),
   `update_family`,
   `add_media` (a file on this computer, linked to people, optionally a portrait), `link_media`,
-  `add_fact_type`, `add_historical_event`, `replace_text`, `sort_children`, `convert_names`, `undo`.
+  `add_fact_type`, `add_historical_event`, `replace_text` (see "Replacing text" below),
+  `sort_children`, `convert_names`, `undo`.
+- **Changing notes** (`update_person`, `update_place`; added after a test on 15 November 2026 in
+  which the model offered to take one word out of a 2,500-character biography, which it could do
+  only by retyping the notes, behind a card that said only "Change Josiah Ashworth: notes."):
+  - `notes` replaces the notes whole only when they hold at most `WholeNotesMaxChars` (400)
+    characters; longer notes are refused, before the card, pointing at `notes_edit` or `add_note`.
+  - `notes_edit` (`find`, `replace`) changes one passage and keeps the rest exactly: `find` must
+    appear in the notes exactly once, as written; an empty `replace` removes the passage.  A
+    passage not found or found more than once, and `notes` with `notes_edit`, are refused before
+    the card (`NotesRefusal`, through `Write`'s `refuse`).
+  - The card shows the changed passage before and after, with up to 40 characters around it
+    (`NotesCard`): `Notes: "...to Thurso, Caithness in 1899..." becomes "...to Caithness in
+    1899..."`; notes that were empty show the new text whole.
+  - Fact notes and descriptions are still replaced whole by `update_fact`; they are short.
+- **Replacing text** (`replace_text`, from the same test, in which replacing "Thurso" with nothing
+  would have changed the biography and left a place called ", Caithness, Scotland"):
+  - The card names each field, up to eight and then how many more ("Replace "Thurso" with "Wick"
+    in 2 fields: Josiah Ashworth: Notes; Place: Thurso, Caithness, Scotland.").  The result to the
+    model gives only the count, because some owners may be withheld (22.4).
+  - A replacement that would leave a given name, surname, place name, source title or research
+    topic empty, starting or ending with a comma, or with two commas together is refused before
+    the card (`ReplaceRefusal`, previewed with `TreeTools.Replaced`); a withheld person in the
+    message is named by id only.
 - **Files (Ask):** `save_tree` (to its file, or a full path for a tree never saved),
   `export_gedcom` (the export options of section 11: Private left out unless included, living
   people privatised unless told otherwise, a branch by person with ancestors, descendants and
@@ -2132,6 +2155,16 @@ sections 22.2 and 25.4):
   no closing menu of what to do next.
 - Say the tree was changed only when a tool that changes it succeeded in this request.
 
+Added after a third test the same day, in which "Remove Thurso." (said after editing a research log
+entry that didn't hold it) led the model to search the whole tree and offer to edit another
+person's biography and a place, and to remove facts (the code is in section 22.3, Changing notes
+and Replacing text):
+
+- A short instruction ("Remove Thurso", "Change it to 1851") is about what the conversation was
+  just on; when it isn't there, say so and ask, without searching the tree for other things to
+  change.  Never delete facts, places or people, or rewrite notes, as a side effect of another
+  change: name them and let the person decide.
+
 ---
 
 ## 26. The Name: Family Tree to Mycelia
@@ -2287,6 +2320,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | 15 November 2026 | 0.4.0 (unreleased) | After a second test: the notice for a reply claiming changes that weren't made, `AssistantTool.RefuseBeforeAsking` (22.2); `fetch_url` refuses subscription and sign-in sites and repeat reads before asking, and flags a search form that ran no search (`WebFetch.FormNotRun`, 25.4); the FreeBMD row of the resources list; rules (25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | The pane's line of pages read (`AssistantTools.PagesRead`, 22.2); a search form at a bare address is flagged (`WebFetch.BareSearchForm`, 25.4). |
 | 15 November 2026 | 0.4.0 (unreleased) | `log_research` can take places out of a searched list (`remove_searched`, `ResearchLog.Matching`, 7, 22.3), refuses a removal that matches nothing before the card, keeps the result when none is given, and gives back the entry as saved; the rule (25.5). |
+| 15 November 2026 | 0.4.0 (unreleased) | After a third test: `update_person` and `update_place` change notes over 400 characters only by a passage (`notes_edit`), with the passage before and after on the card; `replace_text` names each field on its card and refuses a replacement that would break a name (`ReplaceRefusal`, `TreeTools.Replaced`) (22.3); the rule on short instructions and side effects (25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice B: the person panel's Research tab and a couple's log on its family card, the Research question window (15.2); Tools' research to-do (15.5); `PersonEditor.OpenTab` and `--person-tab` (14, 15.2); the sample tree's invented entries and the `person-research` help picture (28). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice A: `ResearchEntry` and `Research` on people and families, left out of the file while empty (5, 6); `ResearchLog` (7), joined by merging and combining (7.1), carried by tree merges (7.2), searched by Find (7.3), not in GEDCOM (11); `log_research`, research text checks on it and `add_note`, the log in `research_context`, `get_person` and `get_family` (22.3, 68 tools); rules (22.2, 25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |

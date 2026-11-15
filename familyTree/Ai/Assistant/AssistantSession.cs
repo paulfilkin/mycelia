@@ -700,6 +700,9 @@ public sealed class AssistantSession
         // From a test on 15 November 2026: told "Do all three" and "All of them", the model did part, then asked again.
         builder.AppendLine("- \"All\", \"both\", \"all of them\" or \"do all three\" means do every one in this request, then report once. Don't end with a menu of what to do next.");
         builder.AppendLine("- Say you changed the tree only when a tool that changes it succeeded in this request; the pane shows the person what changed.");
+        // From a test on 15 November 2026: after editing a research log entry, "Remove Thurso." (not in the entry) led the
+        // model to search the whole tree and offer to edit another person's biography and a place, and to remove facts.
+        builder.AppendLine("- A short instruction (\"Remove Thurso\", \"Change it to 1851\") is about what the conversation was just on. When it isn't there, say so and ask what is meant; don't search the tree for other things to change. Never delete facts, places or people, or rewrite notes, as a side effect of another change: name them and let the person decide.");
         builder.AppendLine("- When the person names a service (an archive, a record site, a collaborative tree), use that connected MCP server's tools.");
         builder.AppendLine("- Report only checks you actually made. You can't see images, so don't say you checked them; say what the tool results show instead.");
         builder.AppendLine("- End your reply when the task is done or you need an answer. Don't end with offers such as \"If you want, I can...\".");

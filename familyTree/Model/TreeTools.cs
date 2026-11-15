@@ -220,6 +220,10 @@ public static class TreeTools
         return hits;
     }
 
+    /// <summary>What a field's text becomes when the query is replaced in it, without changing it.</summary>
+    public static string Replaced(string text, string query, string replacement, bool matchCase, bool wholeWord) =>
+        query.Length == 0 ? text : Pattern(query, matchCase, wholeWord).Replace(text, replacement.Replace("$", "$$"));
+
     /// <summary>Replaces the query in each selected hit; returns how many fields changed.</summary>
     public static int Replace(IEnumerable<TextHit> hits, string query, string replacement, bool matchCase, bool wholeWord)
     {

@@ -40,23 +40,26 @@ public sealed partial class AssistantTools
                     + (args.Str("relation") == "spouse" ? UnnamedPartnerNote(args, Doc.GetPerson(args.Str("relative_id"))) : "")),
 
         Write("update_person", "Change a person",
-            "Changes a person's names, sex, notes, Private mark or preferred parents. Only the fields given change.",
+            "Changes a person's names, sex, notes, Private mark or preferred parents. Only the fields given change. Notes longer than a short paragraph are changed one passage at a time with notes_edit, never retyped whole.",
             Schema.Object(
                 ("person_id", Schema.String("Whose details."), true),
                 ("given_names", Schema.String("New given names."), false),
                 ("surname", Schema.String("New surname."), false),
                 ("suffix", Schema.String("New suffix (an empty string removes it)."), false),
                 ("sex", Schema.String("Male, Female or Unknown.", "Male", "Female", "Unknown"), false),
-                ("notes", Schema.String("The whole new notes text (replaces the notes)." + NoteRule), false),
+                ("notes", Schema.String($"The whole new notes text (replaces the notes), only for notes of up to {WholeNotesMaxChars} characters; longer notes are changed with notes_edit." + NoteRule), false),
+                ("notes_edit", NotesEditSchema(), false),
                 ("private", Schema.Boolean("Mark the person Private (left out of exports unless chosen)."), false),
                 ("preferred_parents", Schema.String("For someone with two or more sets of parents: the family_id (from get_person's parents) the pedigree and charts should follow."), false)),
             UpdatePerson,
             args =>
             {
                 var parts = new[] { "given_names", "surname", "suffix", "sex", "notes", "private" }.Where(k => args[k] is not null).Select(k => k.Replace('_', ' ')).ToList();
+                if (args["notes_edit"] is not null && !parts.Contains("notes")) parts.Add("notes");
                 if (Doc.GetFamily(args.Str("preferred_parents")) is { } pf) parts.Add($"preferred parents {Doc.CoupleName(pf)}");
-                return $"Change {NameOf(args)}: {string.Join(", ", parts)}.";
-            }),
+                return $"Change {NameOf(args)}: {string.Join(", ", parts)}." + NotesCard(Doc.GetPerson(args.Str("person_id"))?.Notes, args);
+            },
+            NotesRefusal(args => Doc.GetPerson(args.Str("person_id"))?.Notes)),
 
         Write("log_research", "Log research",
             "Records research on one question in a person's or a couple's research log: where was searched, what came of it and what to try next. One entry per question: logging the same fact or topic again updates that entry (the places searched are added, the status, result and next steps replaced), so never repeat it as a new one. To correct the searched list, such as a search that didn't run, use remove_searched; say a place was removed only when the entry this returns no longer lists it. Use it for every search, found or not, and for anyone in the tree the question is about. A record that confirms something also becomes a fact with a citation (add_fact, add_citation); set status Found. Write in the third person, briefly.",
@@ -263,16 +266,18 @@ public sealed partial class AssistantTools
             args => $"Add the repository {Quoted(args.Str("name"))}."),
 
         Write("update_place", "Change a place",
-            "Changes a place's full name (most local part first), latitude, longitude or notes. Every fact at the place follows.",
+            "Changes a place's full name (most local part first), latitude, longitude or notes. Every fact at the place follows. Notes longer than a short paragraph are changed one passage at a time with notes_edit.",
             Schema.Object(
                 ("place_id", Schema.String("The place."), true),
                 ("name", Schema.String("The new full name."), false),
                 ("latitude", Schema.String("Latitude in decimal degrees (51.4545)."), false),
                 ("longitude", Schema.String("Longitude in decimal degrees (-2.5879)."), false),
-                ("notes", Schema.String("The whole new notes text." + NoteRule), false)),
+                ("notes", Schema.String($"The whole new notes text, only for notes of up to {WholeNotesMaxChars} characters; longer notes are changed with notes_edit." + NoteRule), false),
+                ("notes_edit", NotesEditSchema(), false)),
             args =>
             {
                 var place = PlaceArg(args);
+                var notes = ChangedNotes(place.Notes, args);
                 if (args.Str("name") is { } n && Doc.Data.Places.Any(p => p != place && string.Equals(p.Name, n, StringComparison.CurrentCultureIgnoreCase)))
                     throw new ArgumentException($"Another place is already called \"{n}\".  combine_places merges two places.");
                 foreach (var key in new[] { "latitude", "longitude" })
@@ -283,11 +288,12 @@ public sealed partial class AssistantTools
                     if (args.Str("name") is { } name) place.Name = name;
                     if (args["latitude"] is not null) place.Latitude = args.Str("latitude") ?? "";
                     if (args["longitude"] is not null) place.Longitude = args.Str("longitude") ?? "";
-                    if (args["notes"] is not null) place.Notes = args.Str("notes") ?? "";
+                    if (notes is not null) place.Notes = notes;
                     return $"Changed the place \"{place.Name}\".";
                 });
             },
-            args => $"Change the place {Doc.GetPlace(args.Str("place_id"))?.Name ?? ""}{Detail(args, "name", "latitude", "longitude")}."),
+            args => $"Change the place {Doc.GetPlace(args.Str("place_id"))?.Name ?? ""}{Detail(args, "name", "latitude", "longitude")}." + NotesCard(Doc.GetPlace(args.Str("place_id"))?.Notes, args),
+            NotesRefusal(args => Doc.GetPlace(args.Str("place_id"))?.Notes)),
 
         Write("combine_places", "Combine two places",
             "Moves every fact at one place to another and removes the first (its coordinates are kept when the other has none).",
@@ -555,7 +561,7 @@ public sealed partial class AssistantTools
             args => $"Add the historical event {Quoted(args.Str("title"))} ({args.Str("date")})."),
 
         Write("replace_text", "Replace text",
-            "Replaces text in every field that holds it (the fields find_text lists), as one undo step.",
+            "Replaces text in every field that holds it (the fields find_text lists), as one undo step. Only when the person asked for that text to change everywhere; a replacement that would leave a name, place name, source title or research topic empty or with a stray comma is refused.",
             Schema.Object(
                 ("text", Schema.String("The text to replace."), true),
                 ("replacement", Schema.String("What to put instead."), true),
@@ -568,9 +574,16 @@ public sealed partial class AssistantTools
                 bool matchCase = args.Bool("match_case", false), whole = args.Bool("whole_word", false);
                 var hits = TreeTools.Find(Doc, text, matchCase, whole);
                 if (hits.Count == 0) return $"Nothing holds \"{text}\"; nothing was changed.";
+                if (ReplaceRefusal(args) is { } refused) throw new ArgumentException(refused);
+                // The fields are named on the card only: the result goes to the model, and some owners may be withheld.
                 return Change(() => $"Replaced \"{text}\" with \"{replacement}\" in {TreeTools.Replace(hits, text, replacement, matchCase, whole)} fields.");
             },
-            args => $"Replace {Quoted(args.Str("text"))} with {Quoted(args["replacement"]?.ToString())} everywhere in the tree ({TreeTools.Find(Doc, args.Str("text") ?? "", args.Bool("match_case", false), args.Bool("whole_word", false)).Count} fields)."),
+            args =>
+            {
+                var hits = TreeTools.Find(Doc, args.Str("text") ?? "", args.Bool("match_case", false), args.Bool("whole_word", false));
+                return $"Replace {Quoted(args.Str("text"))} with {Quoted(args["replacement"]?.ToString())} in {hits.Count} field{(hits.Count == 1 ? "" : "s")}: {ReplaceFields(hits, 8)}.";
+            },
+            ReplaceRefusal),
 
         Write("sort_children", "Sort children by birth",
             "Puts every family's children in birth order (children with no birth date go last).",
@@ -862,6 +875,123 @@ public sealed partial class AssistantTools
         _ => "",
     };
 
+    // ---- replace_text ----
+    // From the same test: replacing "Thurso" with nothing would have changed a biography and turned a place into
+    // ", Caithness, Scotland", behind a card that said only "everywhere in the tree (2 fields)".
+
+    /// <summary>Fields that name something, which a replacement must not leave empty or with a stray comma.</summary>
+    private static readonly HashSet<string> NameFields = ["Given names", "Surname", "Name", "Source title", "Research: topic"];
+
+    /// <summary>The fields a replacement changes, for the card: "Josiah Ashworth: Notes; Place: Thurso, Caithness, Scotland".</summary>
+    private static string ReplaceFields(List<TreeTools.TextHit> hits, int most)
+    {
+        var names = hits.Select(h => h.Owner == "Place" ? $"Place: {h.Text}" : $"{h.Owner}: {h.Field}").ToList();
+        return string.Join("; ", names.Take(most)) + (names.Count > most ? $"; and {names.Count - most} more" : "");
+    }
+
+    /// <summary>A replacement that would leave a name, place name, source title or research topic empty or broken, before the card.</summary>
+    private string? ReplaceRefusal(JsonObject args)
+    {
+        var text = args.Str("text");
+        var replacement = args["replacement"]?.ToString();
+        if (text is null || replacement is null) return null;
+        bool matchCase = args.Bool("match_case", false), whole = args.Bool("whole_word", false);
+        foreach (var h in TreeTools.Find(Doc, text, matchCase, whole).Where(h => NameFields.Contains(h.Field)))
+        {
+            var after = TreeTools.Replaced(h.Text, text, replacement, matchCase, whole).Trim();
+            if (after.Length == 0 || after.StartsWith(',') || after.EndsWith(',') || System.Text.RegularExpressions.Regex.IsMatch(after, @",\s*,"))
+                // The message goes to the model: a withheld person is named by id only (TDD 22.4).
+                return $"Replacing \"{text}\" with \"{replacement}\" would leave {(h.Owner == "Place" ? "the place" : h.Person is { } q && IdOnly(q) ? q.Id : h.Owner)}'s {h.Field.ToLowerInvariant()} as \"{(h.Person is { } w && IdOnly(w) ? "..." : after)}\", so nothing was changed.  Change that field with its own tool (update_place, update_person), or replace a longer piece of text.";
+        }
+        return null;
+    }
+
+    // ---- notes changes (update_person, update_place) ----
+    // From a test on 15 November 2026, in which the model offered to take one word out of a 2,500-character biography,
+    // which it could only do by retyping the whole notes, behind a card that said only whose notes would change.
+
+    /// <summary>Notes longer than this are changed by a passage (notes_edit), never replaced whole.</summary>
+    private const int WholeNotesMaxChars = 400;
+
+    private static JsonObject NotesEditSchema()
+    {
+        var schema = Schema.Object(
+            ("find", Schema.String("The passage to change, copied exactly from the notes; it must appear once."), true),
+            ("replace", Schema.String("What goes in its place (an empty string removes the passage)."), true));
+        schema["description"] = "Changes one passage of the notes and keeps the rest exactly as it is. Use it for any change to notes longer than a short paragraph.";
+        return schema;
+    }
+
+    private static string? RawStr(JsonObject args, string name) =>
+        args[name] is JsonValue v && v.TryGetValue(out string? s) ? s : args[name]?.ToString();
+
+    /// <summary>
+    /// The notes as the call leaves them, or null when it changes no notes.  <c>notes</c> replaces short notes whole;
+    /// notes over <see cref="WholeNotesMaxChars"/> are changed only by <c>notes_edit</c>, whose passage must appear once
+    /// exactly.  Throws when the change is refused.
+    /// </summary>
+    private static string? ChangedNotes(string current, JsonObject args)
+    {
+        bool whole = args["notes"] is not null, edit = args["notes_edit"] is not null;
+        if (whole && edit) throw new NotesRefused("Give notes or notes_edit, not both.");
+        if (whole)
+        {
+            var text = args["notes"]?.ToString() ?? "";
+            if (text != current && current.Trim().Length > WholeNotesMaxChars)
+                throw new NotesRefused($"The notes hold {current.Length:N0} characters, so they aren't replaced whole: change one passage with notes_edit (find, replace), or add a paragraph with add_note.  Nothing was changed.");
+            return text;
+        }
+        if (!edit) return null;
+        if (args["notes_edit"] is not JsonObject e)
+            throw new NotesRefused("notes_edit is an object: {\"find\": the passage, copied exactly, \"replace\": what goes in its place}.");
+        var find = RawStr(e, "find") ?? "";
+        var replace = RawStr(e, "replace") ?? throw new NotesRefused("notes_edit.replace is required; an empty string removes the passage.");
+        if (find.Trim().Length == 0) throw new NotesRefused("notes_edit.find is required: the passage to change, copied exactly from the notes.");
+        var shown = find.Length > 60 ? find[..57] + "..." : find;
+        int count = 0;
+        for (int i = current.IndexOf(find, StringComparison.Ordinal); i >= 0; i = current.IndexOf(find, i + 1, StringComparison.Ordinal)) count++;
+        if (count == 0) throw new NotesRefused($"\"{shown}\" isn't in the notes as written, so nothing was changed.  Copy the passage exactly from the notes.");
+        if (count > 1) throw new NotesRefused($"\"{shown}\" appears {count} times in the notes; give more of the passage so it is found once.  Nothing was changed.");
+        int at = current.IndexOf(find, StringComparison.Ordinal);
+        return current[..at] + replace + current[(at + find.Length)..];
+    }
+
+    private sealed class NotesRefused(string message) : ArgumentException(message);
+
+    /// <summary>A notes change refused before the card (an unknown person or place is left to the run).</summary>
+    private static Func<JsonObject, string?> NotesRefusal(Func<JsonObject, string?> currentOf) => args =>
+    {
+        if (currentOf(args) is not { } current) return null;
+        try { ChangedNotes(current, args); return null; }
+        catch (NotesRefused ex) { return ex.Message; }
+    };
+
+    /// <summary>
+    /// The card's words for a notes change: the changed passage before and after, with a little of the text around it
+    /// ("Notes: \"...lived in Thurso until 1950...\" becomes \"...lived in Wick until 1950...\"."), or "" for none.
+    /// </summary>
+    private static string NotesCard(string? current, JsonObject args)
+    {
+        if (current is null) return "";
+        string? after;
+        try { after = ChangedNotes(current, args); }
+        catch (ArgumentException) { return ""; }
+        if (after is null || after == current) return "";
+        if (current.Length == 0) return $"  Notes become: \"{OneLine(after)}\".";
+        int p = 0;
+        while (p < current.Length && p < after.Length && current[p] == after[p]) p++;
+        int s = 0;
+        while (s < current.Length - p && s < after.Length - p && current[current.Length - 1 - s] == after[after.Length - 1 - s]) s++;
+        string Around(string t)
+        {
+            int from = Math.Max(0, p - 40), to = Math.Min(t.Length, t.Length - s + 40);
+            return (from > 0 ? "..." : "") + OneLine(t[from..to]) + (to < t.Length ? "..." : "");
+        }
+        return after.Length == 0 ? $"  Notes emptied: \"{Around(current)}\" is removed." : $"  Notes: \"{Around(current)}\" becomes \"{Around(after)}\".";
+    }
+
+    private static string OneLine(string s) => string.Join(" / ", s.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+
     // ---- add_note ----
 
     /// <summary>The finding as add_note keeps it: a date the model wrote at the start removed, dashes made commas.</summary>
@@ -912,13 +1042,14 @@ public sealed partial class AssistantTools
         var preferred = args.Str("preferred_parents");
         if (preferred is not null && !Doc.ParentFamilies(p).Any(f => f.Id == preferred))
             throw new ArgumentException($"{preferred} isn't one of {p.DisplayName}'s parent families; get_person lists them.");
+        var notes = ChangedNotes(p.Notes, args);
         return Change(() =>
         {
             if (preferred is not null) p.PreferredParentsId = preferred;
             if (args["given_names"] is not null) p.Given = args.Str("given_names") ?? "";
             if (args["surname"] is not null) p.Surname = args.Str("surname") ?? "";
             if (args["suffix"] is not null) p.Suffix = args.Str("suffix") ?? "";
-            if (args["notes"] is not null) p.Notes = args["notes"]?.ToString() ?? "";
+            if (notes is not null) p.Notes = notes;
             if (args["private"] is not null) p.Private = args.Bool("private", p.Private);
             p.Sex = sex;
             return $"Changed {p.DisplayName} ({p.Id}).";
