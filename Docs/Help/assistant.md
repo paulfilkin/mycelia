@@ -156,7 +156,7 @@ As it researches, it keeps a **research log** for each person or couple a questi
 > Result: no index entry, burial or probate found online.
 > Next: GRO online index, Dec quarter 1871, Todmorden; Heptonstall burials (West Yorkshire Archive Service).
 
-When the same question is researched again, its entry is updated rather than a new one added: the new places searched join the list, and the result, status and next steps change.
+When the same question is researched again, its entry is updated rather than a new one added: the new places searched join the list, and the result, status and next steps change.  You see the log on each person's **Research** tab, where you can also add and edit questions yourself, and every open question in the Tools workspace's **Research to-do** (see [The People workspace](people.md#research)).
 
 What it finds goes where it belongs:
 

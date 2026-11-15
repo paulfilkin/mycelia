@@ -2,7 +2,7 @@
 
 # Tools
 
-The Tools workspace holds the calculators and checks that work across the whole tree: relationships, dates, Soundex, duplicate people and data errors.  This page also covers the tree tools in the main menu: merging people, find and replace, converting names, sorting children, the relationships list, fact types and historical events.
+The Tools workspace holds the calculators and checks that work across the whole tree: relationships, dates, Soundex, the research to-do, duplicate people and data errors.  This page also covers the tree tools in the main menu: merging people, find and replace, converting names, sorting children, the relationships list, fact types and historical events.
 
 ![The Tools workspace](images/tools.png)
 
@@ -36,6 +36,10 @@ Each result also gives the day of the week.  Dates must include a year; a missin
 ## Soundex
 
 Type a surname to see its Soundex code.  Surnames that sound alike share a code, which helps with spelling variants in old records: Ashworth and Ashwerth both give A263.  Underneath, the calculator lists the surnames in your tree that share the code.
+
+## Research to-do
+
+Lists every open research question in the tree: each person's, and each couple's, with what to try next.  It is up to date each time you open the Tools workspace.  Click a question to go to it: a person's opens their **Research** tab, a couple's opens the **Family** tab with the couple's card.  Questions marked found or not found leave the list.  See [The People workspace](people.md#research).
 
 ## Duplicate people
 
@@ -101,7 +105,7 @@ Main menu > Edit > Find and replace... (Ctrl+F) searches the whole tree for word
 3. Untick anything that should stay as it is.
 4. Type the new words in **Replace with** and click **Replace ticked**.
 
-The search covers names, person and couple notes, fact descriptions and notes, citation details and extracts, place names, source titles, authors, publishers and comments, and media captions and descriptions.
+The search covers names, person and couple notes, research logs (questions, results, places searched and next steps), fact descriptions and notes, citation details and extracts, place names, source titles, authors, publishers and comments, and media captions and descriptions.
 
 Changing the words to find, or either tick box, clears the list, so you never replace from an earlier search.  Clicking **Replace ticked** with no list searches first and replaces everything found.  Undo reverses the whole replacement.
 

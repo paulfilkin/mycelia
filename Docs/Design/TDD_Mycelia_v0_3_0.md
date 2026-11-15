@@ -694,7 +694,8 @@ workspace.
 second with a sample exchange that sends nothing, and, with `--screenshot` only, `--size WxH` for
 the window's size (default 1440x900, never below the minimum) and `--fold <keys>` to fold panels by
 their settings key, comma-separated, `Assistant` for the Assistant, and `--options "<tab>"` for a
-picture of the Options window at that tab instead; `--noautoupdate` to skip the start-up update
+picture of the Options window at that tab instead; `--person-tab <name>` to open the person panel
+on that tab (`PersonEditor.OpenTab`, for the Research tab's help picture); `--noautoupdate` to skip the start-up update
 check) and shows `MainWindow`.  `--mcp-relay` (with `--port <n>` for the check program) opens no
 window at all: it is the relay of section 24.  `App.OnExit` starts a verified update's installer
 (section 23).  An unhandled dispatcher
@@ -868,6 +869,19 @@ person...") and a delete button.  Four tabs:
 **Set spouse order** (`Dialogs.SpouseOrder`, Design considerations, Spouse order): the spouses with their marriage dates, Move up and Move down, the first marked Preferred;
 OK saves `Person.SpouseOrder` as one undo step.
 - *Notes:* a multi-line box, undo-grouped.
+- *Research* (after Notes; "Research (2)" while two questions are open; `ResearchList`): the
+  person's research log (section 7), open questions first, then the most recently changed.  Each
+  entry shows the question, a status chip (Open on amber, Found on green, Not found on grey) and its
+  date, "Searched:" with the places, the result and each next step, and Edit..., Mark found and
+  Mark not found (or Reopen) and Delete (asks); Add research question below.  Add and Edit open the
+  Research question window (`Dialogs.ResearchQuestion`: the question, the fact it is about, the
+  status, and the places searched, result and next steps one a line); Add goes through
+  `ResearchLog.Record`, so the same question is updated rather than added twice.  Every change is
+  one undo step that finds the owner and entry again by id.  A couple's log shows on its family card
+  in the Family tab under COUPLE RESEARCH when it has entries; otherwise the card's buttons offer
+  Research question....  `PersonEditor.OpenTab` names a tab to open at the next rebuild (Tools'
+  research to-do and `--person-tab`); the People workspace's `OnShown` reloads the panel for it when
+  the person is already selected.
 - *Media:* the portrait (Choose picture..., Remove portrait), the linked media as tiles that open
   the Media workspace, and Link a media file....
 
@@ -968,6 +982,10 @@ area, never enlarging.
   Birth date from an event date and an age, Event date from a birth date and an age; results show
   the weekday and, for a birth, suggest recording it as "Cal.".
 - **Soundex:** the code for a surname and the surnames in the tree that share it.
+- **Research to-do:** every open research question in the tree (people's and couples', section 7),
+  by person in index order, each with its question and next steps (or its result when it has none),
+  up to 200, refreshed each time Tools is shown.  A row opens the person's Research tab, or the
+  Family tab for a couple's question (`PersonEditor.OpenTab`).
 - **Duplicate people:** Merge two people... and Find duplicates; the likely pairs (section 7.1),
   closest first, each with the reason and a Compare and merge... button that opens the merge
   window and runs the search again afterwards.  The main menu's Find duplicate people... opens Tools
@@ -2164,7 +2182,9 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
   servers, Other programs, Options and updates, Keyboard shortcuts, Questions and troubleshooting.
 - **Pictures** (`Docs/Help/images/`) are made from the sample tree by `tools/help-shots.ps1`, which
   runs the program in screenshot mode once per picture (`--workspace`, `--assistant-demo`,
-  `--options "<tab>"`, `--options "MCP Helper"`) and scales each to 1600 pixels wide.  Screenshot
+  `--person-tab Research`, `--options "<tab>"`, `--options "MCP Helper"`) and scales each to 1600
+  pixels wide.  The sample tree's home person, Arthur Ashworth, has two invented research questions
+  so the Research tab and the research to-do have something to show.  Screenshot
   mode reads no settings, so the pictures show nobody's own tree, key or server.  Windows it cannot
   open (the dialogs) have no picture.
 - **From the program** (`Ui/Help.cs`): `Help.BaseAddress` is
@@ -2195,6 +2215,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | --- | --- | --- |
 | 15 November 2026 | 0.4.0 (unreleased) | Save shows unsaved changes (accent, a dot and its tooltip, 14); a button's green focus frame shows only for keyboard focus (`KeyboardFocusFrame`, 16), so Save no longer looks "saved" after a click. |
 | 15 November 2026 | 0.4.0 (unreleased) | The Assistant's new conversation button is a speech bubble with a plus (`I.NewConversation`), and the Assistant shows the Mycelia mark in colour on the top bar, its panel header and empty state (`FoldPanel.IconImage`, `UiKit.EmptyState`'s picture), replacing `I.Assistant` (16, 16.1, 22.1, 26.1). |
+| 15 November 2026 | 0.4.0 (unreleased) | The research log, slice B: the person panel's Research tab and a couple's log on its family card, the Research question window (15.2); Tools' research to-do (15.5); `PersonEditor.OpenTab` and `--person-tab` (14, 15.2); the sample tree's invented entries and the `person-research` help picture (28). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice A: `ResearchEntry` and `Research` on people and families, left out of the file while empty (5, 6); `ResearchLog` (7), joined by merging and combining (7.1), carried by tree merges (7.2), searched by Find (7.3), not in GEDCOM (11); `log_research`, research text checks on it and `add_note`, the log in `research_context`, `get_person` and `get_family` (22.3, 68 tools); rules (22.2, 25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |
 | 12 November 2026 | 0.3.0 | The first real update, 0.2.0 to 0.3.0 through the published release, worked end to end (23). |

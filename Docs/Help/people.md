@@ -127,7 +127,24 @@ Click any relative's name or picture to go to them.
 
 ### Notes
 
-The **Notes** tab is a box for anything about the person that is not a fact: family stories, research notes, questions still open.  These are the person's own notes; each fact also has a note of its own.
+The **Notes** tab is a box for anything about the person that is not a fact: family stories, how two records were matched, anything that fits nowhere else.  These are the person's own notes; each fact also has a note of its own.  Searches and questions still open belong in the **Research** tab.
+
+### Research
+
+![The Research tab](images/person-research.png)
+
+The **Research** tab is the person's research log: one entry for each research question, such as "Baptism, 1884, Leeds".  Its header counts the questions still open, "Research (1)".  Each entry shows:
+
+- the question, its status (**Open**, **Found** or **Not found**) and the date it last changed;
+- **Searched:** where you, or the Assistant, have looked;
+- the result, in a sentence or two;
+- **Next:** what to try next.
+
+Under each entry, **Edit...** changes it, **Mark found** and **Mark not found** close it (**Reopen** opens it again), and **Delete** removes it after asking.  **Add research question** starts a new one.  The window asks for the question, the fact it is about (choosing a fact fills in the question), the status, and the places searched, the result and the next steps, one a line.  If the question is already in the log, its entry is updated instead of a second one being added.
+
+A couple's research, such as finding their marriage, is kept on the couple's card in the **Family** tab, under **COUPLE RESEARCH**; a card without any has **Research question...** among its buttons.  Every open question in the tree is listed together in the Tools workspace's **Research to-do** (see [Tools](tools.md#research-to-do)).
+
+The Assistant keeps this log as it researches (see [The Assistant](assistant.md#building-on-the-familys-notes-and-research-log)).  The log is saved in the tree file but not written to GEDCOM files.
 
 ### Media
 

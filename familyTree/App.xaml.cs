@@ -43,6 +43,8 @@ public partial class App : Application
             else if (e.Args[i] == "--size" && i + 1 < e.Args.Length) size = e.Args[++i];
             else if (e.Args[i] == "--fold" && i + 1 < e.Args.Length) fold = e.Args[++i];
             else if (e.Args[i] == "--options" && i + 1 < e.Args.Length) options = e.Args[++i];
+            // --person-tab Research: the person panel opens on that tab (for help pictures).
+            else if (e.Args[i] == "--person-tab" && i + 1 < e.Args.Length) Ui.Views.PersonEditor.OpenTab = e.Args[++i];
             else if (e.Args[i] == "--noautoupdate") Updates.UpdateService.NoAutoUpdate = true;
             else if (!e.Args[i].StartsWith("--", StringComparison.Ordinal)) open = e.Args[i];
         }

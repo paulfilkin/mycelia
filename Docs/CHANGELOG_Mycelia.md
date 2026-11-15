@@ -10,8 +10,11 @@ understand what changed without reading the diff.
 - **A research log for each person and couple.**  Each research question is one short entry: what
   it is about (such as a death in 1871), where has been searched, what came of it, what to try
   next, and whether it is open, found or not found.  Researching the same question again updates
-  its entry instead of adding another, so the log stays one line per question.  It is kept in the
-  tree file and is not written to GEDCOM.
+  its entry instead of adding another, so the log stays one line per question.  A new **Research**
+  tab in the person panel shows the log, with buttons to add, edit, mark found or not found, and
+  delete; a couple's questions show on their card in the Family tab.  The Tools workspace's new
+  **Research to-do** lists every open question in the tree, and clicking one goes to it.  The log
+  is kept in the tree file and is not written to GEDCOM.
 - **Research that builds on what the family's records already hold.**  Before researching someone,
   the Assistant reads their facts, notes and research log, and those of their nearest relatives
   (parents, husband or wife, children, brothers and sisters, and grandparents and grandchildren

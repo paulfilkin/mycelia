@@ -46,6 +46,9 @@ public sealed class PersonEditor : UserControl
     /// <summary>Options > Warnings: show the data-error box.</summary>
     public static bool ShowWarnings { get; set; } = true;
 
+    /// <summary>A tab to open at the next rebuild, by the start of its header ("Research"); used once, then cleared.</summary>
+    public static string? OpenTab { get; set; }
+
     /// <summary>
     /// The data-error check for this one person, shown as they are edited, so problems are seen
     /// where they are made rather than only in the Tools report.
@@ -129,7 +132,17 @@ public sealed class PersonEditor : UserControl
         tabs.Items.Add(new TabItem { Header = "Facts", Content = Scroll(BuildFactsTab(p)) });
         tabs.Items.Add(new TabItem { Header = "Family", Content = Scroll(BuildFamilyTab(p)) });
         tabs.Items.Add(new TabItem { Header = "Notes", Content = BuildNotesTab(p) });
+        // The research log (TDD 15.2), its open questions counted in the header.
+        var open = ResearchList.OpenCount(p);
+        tabs.Items.Add(new TabItem { Header = open == 0 ? "Research" : $"Research ({open})", Content = Scroll(BuildResearchTab(p)) });
         tabs.Items.Add(new TabItem { Header = "Media", Content = Scroll(BuildMediaTab(p)) });
+        // A tab asked for by name (the Tools workspace's research to-do, screenshot mode's --person-tab).
+        if (OpenTab is { } wanted)
+        {
+            var index = tabs.Items.Cast<TabItem>().ToList().FindIndex(t => ((string)t.Header).StartsWith(wanted, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0) _tab = index;
+            OpenTab = null;
+        }
         tabs.SelectedIndex = _tab;
         tabs.SelectionChanged += (_, e) => { if (e.Source == tabs) _tab = tabs.SelectedIndex; };
         root.Children.Add(tabs);
@@ -519,6 +532,14 @@ public sealed class PersonEditor : UserControl
             inner.Children.Add(factHead);
             inner.Children.Add(BuildFactList(fam.Facts, null, fam));
 
+            // The couple's research log (a marriage question), shown when it has entries; otherwise the card's buttons
+            // offer Research question... below.
+            if (ResearchLog.Of(fam).Count > 0)
+            {
+                inner.Children.Add(new TextBlock { Text = "COUPLE RESEARCH", Style = UiKit.Res<Style>("SectionLabel"), Margin = new Thickness(0, 8, 0, 6) });
+                inner.Children.Add(ResearchList.Build(_state, fam, Doc.CoupleName(fam)));
+            }
+
             var kids = Doc.Children(fam).OrderBy(c => c.Birth?.ParsedDate.SortKey ?? long.MaxValue).ToList();
             var kidHead = new TextBlock { Text = kids.Count == 0 ? "CHILDREN" : $"CHILDREN ({kids.Count})", Style = UiKit.Res<Style>("SectionLabel"), Margin = new Thickness(0, 8, 0, 6) };
             inner.Children.Add(kidHead);
@@ -572,6 +593,12 @@ public sealed class PersonEditor : UserControl
                     menu.IsOpen = true;
                 }, "Link");
                 kidButtons.Children.Add(combine);
+            }
+            if (ResearchLog.Of(fam).Count == 0)
+            {
+                var famId = fam.Id;
+                var couple = Doc.CoupleName(fam);
+                kidButtons.Children.Add(UiKit.Button("GhostButton", "Research question...", (_, _) => ResearchList.AddQuestion(_state, famId, couple), "Search"));
             }
             inner.Children.Add(kidButtons);
             box.Child = inner;
@@ -632,6 +659,14 @@ public sealed class PersonEditor : UserControl
     }
 
     // ---------------------------------------------------------------- notes and media
+
+    private FrameworkElement BuildResearchTab(Person p)
+    {
+        var sp = new StackPanel { Margin = new Thickness(16, 14, 16, 20) };
+        sp.Children.Add(UiKit.Text("RESEARCH LOG", "SectionLabel"));
+        sp.Children.Add(ResearchList.Build(_state, p, p.DisplayName));
+        return sp;
+    }
 
     private FrameworkElement BuildNotesTab(Person p)
     {

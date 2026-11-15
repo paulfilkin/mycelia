@@ -39,6 +39,10 @@ public sealed class ToolsView : UserControl, IWorkspace
         top.Children.Add(soundex);
         page.Children.Add(top);
 
+        var research = UiKit.Card(ResearchCard());
+        research.Margin = new Thickness(0, 16, 0, 0);
+        page.Children.Add(research);
+
         _duplicatesCard = UiKit.Card(DuplicatesCard());
         _duplicatesCard.Margin = new Thickness(0, 16, 0, 0);
         page.Children.Add(_duplicatesCard);
@@ -63,6 +67,7 @@ public sealed class ToolsView : UserControl, IWorkspace
         _relB = doc.GetPerson(_relB?.Id) ?? _state.Selected;
         if (_relA == _relB) _relB = doc.Data.People.FirstOrDefault(p => p != _relA);
         Calculate();
+        ShowResearch();
     }
 
     private static FrameworkElement CardTitle(string icon, string title, string about)
@@ -317,6 +322,83 @@ public sealed class ToolsView : UserControl, IWorkspace
         _errors.Margin = new Thickness(0, 8, 0, 0);
         sp.Children.Add(_errors);
         return sp;
+    }
+
+    // ---------------------------------------------------------------- research to-do
+
+    private const int ResearchRows = 200;
+    private readonly StackPanel _research = new();
+    private readonly TextBlock _researchSummary = UiKit.Text("", "Caption");
+
+    private FrameworkElement ResearchCard()
+    {
+        var sp = new StackPanel();
+        sp.Children.Add(CardTitle("Note", "Research to-do",
+            "Every open research question in the tree, with what to try next.  Click one to go to it.  Questions are kept in each person's Research tab, and on a couple's card in the Family tab."));
+        sp.Children.Add(_researchSummary);
+        _research.Margin = new Thickness(0, 8, 0, 0);
+        sp.Children.Add(_research);
+        return sp;
+    }
+
+    /// <summary>The open questions of every person and couple, by person in index order (TDD 15.8).</summary>
+    private void ShowResearch()
+    {
+        if (_state is null) return;
+        _research.Children.Clear();
+        var doc = _state.Doc;
+        var rows = new List<(Person Person, string Who, ResearchEntry Entry, bool Couple)>();
+        foreach (var p in doc.Data.People)
+            foreach (var e in ResearchLog.Of(p).Where(e => e.Status == ResearchStatus.Open))
+                rows.Add((p, p.DisplayName, e, false));
+        foreach (var f in doc.Data.Families)
+            if ((doc.GetPerson(f.Partner1Id) ?? doc.GetPerson(f.Partner2Id)) is { } partner)
+                foreach (var e in ResearchLog.Of(f).Where(e => e.Status == ResearchStatus.Open))
+                    rows.Add((partner, doc.CoupleName(f), e, true));
+        rows = rows.OrderBy(r => r.Person.IndexName, StringComparer.CurrentCultureIgnoreCase).ThenByDescending(r => r.Entry.Updated).ToList();
+        _researchSummary.Text = rows.Count switch
+        {
+            0 => "No open research questions.",
+            1 => "1 open question.",
+            var n => $"{n} open questions{(n > ResearchRows ? $"; the first {ResearchRows} are listed" : "")}.",
+        };
+        foreach (var r in rows.Take(ResearchRows))
+        {
+            var row = new Grid { Margin = new Thickness(-8, 0, -8, 2), Cursor = Cursors.Hand, Background = System.Windows.Media.Brushes.Transparent };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var who = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(8, 6, 8, 6), VerticalAlignment = VerticalAlignment.Top };
+            who.Children.Add(UiKit.Avatar(doc, r.Person, 26));
+            var name = UiKit.Text(r.Who, weight: FontWeights.Medium);
+            name.Margin = new Thickness(8, 0, 0, 0);
+            name.VerticalAlignment = VerticalAlignment.Center;
+            who.Children.Add(name);
+            row.Children.Add(who);
+            var what = new StackPanel { Margin = new Thickness(0, 6, 8, 6) };
+            var topic = UiKit.Text(r.Entry.Topic, weight: FontWeights.Medium);
+            topic.TextWrapping = TextWrapping.Wrap;
+            what.Children.Add(topic);
+            foreach (var n in r.Entry.Next)
+            {
+                var t = UiKit.Text("Next: " + n, "Caption");
+                t.TextWrapping = TextWrapping.Wrap;
+                what.Children.Add(t);
+            }
+            if (r.Entry.Next.Count == 0 && r.Entry.Result.Length > 0)
+            {
+                var t = UiKit.Text(r.Entry.Result, "Caption");
+                t.TextWrapping = TextWrapping.Wrap;
+                what.Children.Add(t);
+            }
+            Grid.SetColumn(what, 1);
+            row.Children.Add(what);
+            var person = r.Person;
+            var tab = r.Couple ? "Family" : "Research";
+            row.MouseEnter += (_, _) => row.Background = UiKit.Brush("Hover");
+            row.MouseLeave += (_, _) => row.Background = System.Windows.Media.Brushes.Transparent;
+            row.MouseLeftButtonUp += (_, _) => { PersonEditor.OpenTab = tab; _state.Select(person, focus: true); _state.Navigate("People"); };
+            _research.Children.Add(row);
+        }
     }
 
     // ---------------------------------------------------------------- duplicate people

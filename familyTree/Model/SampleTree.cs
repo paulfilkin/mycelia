@@ -114,6 +114,26 @@ public static class SampleTree
         thomas.Notes = "Thomas served his apprenticeship at a locomotive works and moved the family to Leeds around 1880.";
         harold.Notes = "Remembered on the town war memorial.";
 
+        // A research log for the home person, so the Research tab and Tools' research to-do have something to show.
+        arthur.Research =
+        [
+            new ResearchEntry
+            {
+                Topic = "Baptism, 1884, Leeds", Status = ResearchStatus.Open,
+                Searched = ["FreeREG baptisms 1884-85 (Ashworth)", "Leeds parish registers index"],
+                Result = "No baptism found yet; the family were Methodists, so it may be in a chapel register.",
+                Next = ["Brunswick Methodist chapel registers (West Yorkshire Archive Service)"],
+                Updated = new DateTime(2026, 11, 14),
+            },
+            new ResearchEntry
+            {
+                Topic = "Death, 29 Mar 1962, Manchester", FactId = arthur.Death?.Id, Status = ResearchStatus.Found,
+                Searched = ["GRO death index 1962"],
+                Result = "Index entry found, Mar quarter 1962, Manchester South.",
+                Updated = new DateTime(2026, 11, 12),
+            },
+        ];
+
         // The standard historical events, so the Person view's timeline has something to show.
         data.HistoricalEvents.AddRange(Timeline.StandardEvents());
         data.HomePersonId = arthur.Id;

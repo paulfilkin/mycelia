@@ -31,6 +31,7 @@ $shots = [ordered]@{
     "home"                   = @("--workspace", "Home")
     "people"                 = @("--workspace", "People")
     "person-view"            = @("--workspace", "Person")
+    "person-research"        = @("--workspace", "People", "--person-tab", "Research")
     "places"                 = @("--workspace", "Places")
     "sources"                = @("--workspace", "Sources")
     "media"                  = @("--workspace", "Media")

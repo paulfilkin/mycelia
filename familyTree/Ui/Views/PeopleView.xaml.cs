@@ -49,7 +49,13 @@ public partial class PeopleView : UserControl, IWorkspace
         OnSelectionChanged();
     }
 
-    public void OnShown() => DrawTree();
+    public void OnShown()
+    {
+        // A tab asked for from elsewhere (Tools' research to-do) for the person already selected: selecting them again
+        // raises no event, so the panel is reloaded here to open it.
+        if (PersonEditor.OpenTab is not null && _state is not null) _editor!.Load(_state.Selected);
+        DrawTree();
+    }
 
     // ---------------------------------------------------------------- index
 
