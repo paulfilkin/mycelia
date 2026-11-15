@@ -366,12 +366,25 @@
     </Style>
 
     <!-- Buttons -->
+    <!-- The green frame for a button reached with the keyboard (Tab).  WPF draws a focus visual style only for keyboard
+         focus, so a button clicked with the mouse shows no frame; it used to, and the Save button looked "saved" after a
+         click but not after Ctrl+S. -->
+    <Style x:Key="KeyboardFocusFrame">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border BorderBrush="{StaticResource BrandAccent}" BorderThickness="1.5" CornerRadius="6" SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="ButtonBase" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="Padding" Value="12,6" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusFrame}" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template">
@@ -385,9 +398,6 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrandAccent}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

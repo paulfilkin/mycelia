@@ -103,6 +103,8 @@ To add a GEDCOM file to the tree you already have, rather than replace it, use M
 
 Nothing is saved until you save.  Mycelia does not save automatically.
 
+While there are unsaved changes, the **Save** button in the top bar turns bright green with a dot on its icon, and "unsaved changes" follows the tree's name.  Once everything is saved, the button is plain again; hover over it to see "everything is saved".
+
 - **Save** in the top bar, Main menu > Save, or Ctrl+S, saves the tree to its file.  The first time, it asks where to save it and what to call it.
 - Main menu > **Save as...** saves the tree under a new name or in a new place, and carries on with the new file.
 

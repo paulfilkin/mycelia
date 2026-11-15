@@ -20,6 +20,11 @@ understand what changed without reading the diff.
 - **The Assistant's button for starting again** is now a speech bubble with a plus, "New
   conversation".  It was a bin, which looked as if it would delete the selected person.  It still
   asks before forgetting the conversation.
+- **Save shows when there is something to save.**  While there are unsaved changes, the Save
+  button turns bright green with a dot, and its tooltip says so; once saved, it is plain again.
+  Before, a green frame appeared on Save after clicking it and stayed, which looked like "saved"
+  but was only the button keeping the keyboard's attention, and it never appeared after Ctrl+S.
+  Buttons now show that frame only when reached with the Tab key.
 - **The Assistant shows the Mycelia mark**, in colour, on its top bar button, in its panel's
   header and on the empty pane, in place of a speech bubble.  The Assistant is what connects the
   tree to its sources, which is what the mark shows.

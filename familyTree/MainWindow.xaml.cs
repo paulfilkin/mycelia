@@ -157,6 +157,13 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
         var doc = _state.Doc;
         FileTitle.Text = doc.Title + (doc.IsDirty ? "  •  unsaved changes" : "");
         Title = $"{doc.Title} - Mycelia";
+        // The Save button says whether there is anything to save: accent and a dot while there are unsaved changes.
+        if (doc.IsDirty) SaveContent.SetResourceReference(System.Windows.Documents.TextElement.ForegroundProperty, "BrandAccent");
+        else SaveContent.ClearValue(System.Windows.Documents.TextElement.ForegroundProperty);
+        UnsavedDot.Visibility = doc.IsDirty ? Visibility.Visible : Visibility.Collapsed;
+        SaveButton.ToolTip = doc.IsDirty ? "Save (Ctrl+S): there are unsaved changes"
+            : doc.FilePath is null ? "Save (Ctrl+S): this tree has not been saved to a file"
+            : "Save (Ctrl+S): everything is saved";
         UndoButton.IsEnabled = doc.CanUndo;
         RedoButton.IsEnabled = doc.CanRedo;
         var c = doc.Counts();

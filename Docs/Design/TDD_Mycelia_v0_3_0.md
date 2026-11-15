@@ -688,7 +688,9 @@ picture is still taken.
 `MainWindow` (1440x900, minimum 1080x680, centred) has a Forest floor top bar with the wordmark
 (the mark for dark backgrounds and "mycelia" in Space Grotesk), the tree name
 (with "unsaved changes" when dirty), seven workspace tabs (Home, People, Places, Sources, Media,
-Charts, Tools), the Assistant button, Back and Forward arrows, Undo, Redo, Save and the main menu;
+Charts, Tools), the Assistant button, Back and Forward arrows, Undo, Redo, Save and the main menu
+(Save turns `BrandAccent` with a dot on its icon while there are unsaved changes, and its tooltip
+says whether everything is saved; `UpdateChrome`);
 the workspace host, with the Assistant pane and its drag handle to its right when open (section
 22.1); and a status bar with the counts and the home person (and the Assistant's occasional
 messages, such as a conversation that couldn't be saved).  In a narrow window the top bar drops
@@ -965,7 +967,8 @@ area, never enlarging.
 `ForestFloor` `#0F1F1A` (the top bar, `TopBar`, with `TopBarText` Thread `#E8EDE4` and
 `TopBarMuted`), `Subsoil` `#0A1612`, `Thread`, `SporeAmber` `#F4B740` and `Foxfire` `#9BE564`; the
 brand green `#2F7D32` (Foxfire on light) with hover, pressed, soft and softer shades, `BrandAccent`
-Foxfire for marks on dark (the active tab's bar, focus borders, the update button) and `BrandMid`
+Foxfire for marks on dark (the active tab's bar, focus borders, the update button, unsaved changes on
+Save) and `BrandMid`
 `#5DAA5F` for bars and dots on white; ink `#12241E`, muted and subtle text; surfaces (the page
 `#F3F5EF`), hover and borders; male blue `#3D72AE`, female plum `#B24E79`, neutral grey, each with a
 soft fill; warning amber and danger red.  It overrides the Fluent accent colours and, since the
@@ -983,7 +986,9 @@ from `Resources/Fonts` (section 26.1).  Then the icon geometries (`I.Home`, `I.P
 `I.NewConversation`, `I.Send`, `I.Stop`, `I.Copy`, `I.Server`), the
 mark and icon drawings (`MarkImage`, `MarkInkImage`, `IconImage`, `IconSmallImage`, section 26.1),
 and the styles: `H1` to `H3`, `Caption`, `SectionLabel`, `FieldLabel`, `Icon` (stroke from
-the text colour), `Card`, `Panel`, `PrimaryButton`, `SecondaryButton`, `GhostButton`,
+the text colour), `Card`, `Panel`, `KeyboardFocusFrame` (the Foxfire frame every button based on
+`ButtonBase` shows when it is reached with the keyboard; a focus visual style, so a mouse click shows
+none), `PrimaryButton`, `SecondaryButton`, `GhostButton`,
 `IconButton`, `TopBarButton`, `NavTab`, `Segment`, `PanelTab` and `PanelTabs`, `ListRow`,
 `PlainList` (virtualised, pixel scrolling), `Divider`, `Badge`.  `PanelTabs` names its content
 presenter `PART_SelectedContentHost`: WPF's automation peers find the selected tab's contents by
@@ -2150,6 +2155,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 15 November 2026 | 0.4.0 (unreleased) | Save shows unsaved changes (accent, a dot and its tooltip, 14); a button's green focus frame shows only for keyboard focus (`KeyboardFocusFrame`, 16), so Save no longer looks "saved" after a click. |
 | 15 November 2026 | 0.4.0 (unreleased) | The Assistant's new conversation button is a speech bubble with a plus (`I.NewConversation`), and the Assistant shows the Mycelia mark in colour on the top bar, its panel header and empty state (`FoldPanel.IconImage`, `UiKit.EmptyState`'s picture), replacing `I.Assistant` (16, 16.1, 22.1, 26.1). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |
 | 12 November 2026 | 0.3.0 | The first real update, 0.2.0 to 0.3.0 through the published release, worked end to end (23). |
