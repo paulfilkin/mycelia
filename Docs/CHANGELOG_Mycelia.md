@@ -3,7 +3,7 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
-## 0.4.1 - unreleased
+## 0.4.1 - 15 November 2026
 
 Tidying a research log in one step, the research log in the Person view, and an Assistant that
 leaves your view as it is.
