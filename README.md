@@ -10,7 +10,7 @@ MCP servers do that for a family tree.  MCP also stands for "Mycelia Connects Pe
 
 ![The People workspace with the Assistant](Docs/Images/people.png)
 
-> **Status:** version 0.3.0, in development.  Ready-built versions for testing are on the
+> **Status:** version 0.4.0, in development.  Ready-built versions for testing are on the
 > [Releases page](https://github.com/paulfilkin/mycelia/releases) (see [Download](#download)).
 > The tree file format may still change.
 
@@ -31,17 +31,21 @@ conventions Mycelia follows.
 ## What it does
 
 - **People.**  An index with search, history and bookmarks.  Pedigree, family and descendant
-  views, and a person panel for facts, family, notes and media.  A Person view with the full facts
-  table, a timeline with historical events, and the relatives one click away.
+  views, and a person panel for facts, family, notes, media and research.  A Person view with the
+  full facts table, a timeline with historical events, and the relatives one click away.
 - **Facts and sources.**  Over 60 fact types, each with a date, place, description and note, and
   your own types.  Dates are kept as typed ("Abt. 1850", "Bet. 1850 and 1855") and read for
   sorting and checks.  Citations with detail, a web address, the date accessed and an extract.
+- **Research log.**  One entry per research question on each person and couple, such as "Death,
+  3 Nov 1871, Hebden Bridge": where has been searched, what came of it, what to try next, and
+  whether it is open, found or not found.  Researching the question again updates its entry.
 - **Places, Sources, Media and Charts.**  Each place with its people and events.  Sources and
   repositories, with every citation.  Pictures and documents linked to people.  Printable
   pedigree, descendant, fan and family group charts, saved as pictures or printed.
 - **Tools.**  A relationship calculator ("2nd cousin 1x removed"), a date calculator, Soundex,
   duplicate people with merging, a data-error check (parents too young, births after deaths and
-  so on), find and replace, name conversion and sorting children by birth.
+  so on), a research to-do of every open question, find and replace, name conversion and sorting
+  children by birth.
 - **GEDCOM 5.5.1.**  Import and export, with options to leave out private people and facts,
   privatise living people or export one branch.  Merge another tree, and back up and restore with
   media.
@@ -56,10 +60,14 @@ grandchildren?", "find this baptism in the archives".  The Assistant uses Myceli
 - **Your choice of AI model:** Anthropic, OpenAI, or any service with the OpenAI chat interface,
   including local ones such as Ollama and LM Studio, where nothing leaves your computer.
 - **You approve every change.**  Each change says what it will do and waits for Allow, Always
-  allow or Decline.  Every change is an undo step, and a whole request can be reverted.
-- **Research.**  It suggests where to look, reads open archive APIs, downloads records into the
-  tree's media folder, and cites each record with its web address, the date and an extract.  It
-  only searches records for people who have died.
+  allow or Decline, and shows what will change, down to the passage of a note.  Every change is an
+  undo step, and a whole request can be reverted.
+- **Research.**  Before researching someone, it reads their notes and research log and their
+  nearest relatives', so it builds on what the family's records already hold and doesn't search
+  again what has been searched.  It suggests where to look, reads open archive APIs, downloads
+  records into the tree's media folder, cites each record with its web address, the date and an
+  extract, and logs each search on the person it is about.  The pane lists the pages each request
+  read.  It only searches records for people who have died.
 - **MCP Helper.**  Adds archives' own MCP servers, such as Open Archives (the Netherlands and
   Belgium) and Riksarkivet (Sweden), including servers that sign in through the browser.
 - **Other programs.**  Claude Desktop, Claude Code and other MCP clients can use Mycelia's tools
