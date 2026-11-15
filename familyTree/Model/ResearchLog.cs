@@ -40,12 +40,13 @@ public static class ResearchLog
     private static string Normal(string s) => string.Join(' ', s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>
-    /// Records research on a question: the existing entry for it is updated (the places searched are added to its list,
-    /// and the status, result and next steps replaced when given), or a new entry is made.  Run inside
-    /// <see cref="TreeDocument.Change"/>.  Gives the entry and whether it is new.
+    /// Records research on a question: the existing entry for it is updated (the places in <paramref name="remove"/>
+    /// taken out of its searched list (<see cref="Matching"/>), the places searched added, and the status, result and
+    /// next steps replaced when given), or a new entry is made.  Run inside <see cref="TreeDocument.Change"/>.  Gives the
+    /// entry and whether it is new.
     /// </summary>
     public static (ResearchEntry Entry, bool Created) Record(object owner, string? factId, string topic, ResearchStatus status,
-        IEnumerable<string> searched, string? result, IEnumerable<string>? next, DateTime today)
+        IEnumerable<string> searched, string? result, IEnumerable<string>? next, DateTime today, IEnumerable<string>? remove = null)
     {
         var entry = Find(owner, factId, topic);
         var created = entry is null;
@@ -56,12 +57,35 @@ public static class ResearchLog
         }
         entry.FactId ??= factId;
         entry.Status = status;
+        if (remove is not null)
+        {
+            var gone = remove.SelectMany(r => Matching(entry.Searched, r)).ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+            entry.Searched.RemoveAll(gone.Contains);
+        }
         AddDistinct(entry.Searched, searched);
         if (result is not null) entry.Result = result.Trim();
         if (next is not null) entry.Next = next.Select(Normal).Where(s => s.Length > 0).Distinct(StringComparer.CurrentCultureIgnoreCase).ToList();
         else if (status != ResearchStatus.Open) entry.Next.Clear();
         entry.Updated = today.Date;
         return (entry, created);
+    }
+
+    /// <summary>
+    /// The places in a searched list that <paramref name="item"/> names: the same place, ignoring case and spacing, or a
+    /// place starting with its words and then a space or a bracket ("FreeBMD" names "FreeBMD deaths 1876-78 (Ashworth)"
+    /// but not "FreeBMDx").  From a test on 15 November 2026, in which the model was asked to take FreeBMD out of a log
+    /// and had no way to.
+    /// </summary>
+    public static List<string> Matching(IEnumerable<string> searched, string item)
+    {
+        var words = Normal(item);
+        if (words.Length == 0) return [];
+        return searched.Where(s =>
+        {
+            var place = Normal(s);
+            return SameTopic(place, words)
+                || (place.Length > words.Length && place.StartsWith(words, StringComparison.CurrentCultureIgnoreCase) && place[words.Length] is ' ' or '(');
+        }).ToList();
     }
 
     private static void AddDistinct(List<string> into, IEnumerable<string> items)

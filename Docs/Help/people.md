@@ -140,7 +140,7 @@ The **Research** tab is the person's research log: one entry for each research q
 - the result, in a sentence or two;
 - **Next:** what to try next.
 
-Under each entry, **Edit...** changes it, **Mark found** and **Mark not found** close it (**Reopen** opens it again), and **Delete** removes it after asking.  **Add research question** starts a new one.  The window asks for the question, the fact it is about (choosing a fact fills in the question), the status, and the places searched, the result and the next steps, one a line.  If the question is already in the log, its entry is updated instead of a second one being added.
+Under each entry, **Edit...** changes it, **Mark found** and **Mark not found** close it (**Reopen** opens it again), and **Delete** removes it after asking.  **Add research question** starts a new one.  The window asks for the question, the fact it is about (choosing a fact fills in the question), the status, and the places searched, the result and the next steps, one a line.  If the question is already in the log, its entry is updated instead of a second one being added.  To take a place out of **Searched**, such as a site whose search never ran, delete its line in **Edit...**, or ask the Assistant.
 
 A couple's research, such as finding their marriage, is kept on the couple's card in the **Family** tab, under **COUPLE RESEARCH**; a card without any has **Research question...** among its buttons.  Every open question in the tree is listed together in the Tools workspace's **Research to-do** (see [Tools](tools.md#research-to-do)).
 

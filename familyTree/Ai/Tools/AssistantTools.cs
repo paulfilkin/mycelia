@@ -334,7 +334,8 @@ public sealed partial class AssistantTools
     };
 
     /// <summary>A tool that changes the tree or its files (Ask by default), with the sentence its approval card shows.</summary>
-    private static AssistantTool Write(string name, string title, string description, JsonObject schema, Func<JsonObject, string> run, Func<JsonObject, string> describe) => new()
+    private static AssistantTool Write(string name, string title, string description, JsonObject schema, Func<JsonObject, string> run, Func<JsonObject, string> describe,
+        Func<JsonObject, string?>? refuse = null) => new()
     {
         Name = name,
         Title = title,
@@ -347,6 +348,7 @@ public sealed partial class AssistantTools
             return Task.FromResult(new ToolOutcome(message, false, message.Length > 120 ? message[..117] + "..." : message));
         },
         Describe = describe,
+        RefuseBeforeAsking = refuse,
     };
 
     /// <summary>A person's name for an approval card, by id (the card is shown before anything is looked up).</summary>

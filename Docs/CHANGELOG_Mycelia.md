@@ -39,6 +39,11 @@ understand what changed without reading the diff.
   www.freebmd.org.uk (search form with no search run)."  A site's search page read with no search
   in its address, such as FreeBMD's or the home pages of FreeCEN and FreeREG, is now recognised as
   a form too, so the Assistant is told reading it searched nothing.
+- **The Assistant can take a place out of a research log's searched list**, such as a site whose
+  search never ran.  Before, it could only add places, and once said it had removed one when it
+  hadn't.  The card names each place that will go; a place that isn't in the list is refused
+  before you are asked, and the Assistant is told what the list holds.  After each log change the
+  Assistant is given the entry as saved, so its reply reports what is in the tree.
 - **The Assistant's button for starting again** is now a speech bubble with a plus, "New
   conversation".  It was a bin, which looked as if it would delete the selected person.  It still
   asks before forgetting the conversation.

@@ -312,10 +312,13 @@ Edits are building blocks meant to be called inside `Change` (section 8):
 - `PrunePlaces` removes places no fact uses that have no coordinates and no notes.
 - **Research log** (`Model/ResearchLog.cs`, Design considerations, Research log): one `ResearchEntry`
   per research question on a person or a family.  `Record(owner, factId, topic, status, searched,
-  result, next, today)` finds the entry for the same question (the same fact when one is given,
-  else the same topic ignoring case and spacing) and updates it: the places searched are added
-  without repeats, and the status, result and next steps replaced (a Found or NotFound entry given
-  no next steps loses its old ones); otherwise it adds one.  `Combine(into, from)` joins two logs
+  result, next, today, remove)` finds the entry for the same question (the same fact when one is
+  given, else the same topic ignoring case and spacing) and updates it: the places in `remove` are
+  taken out of its searched list, the places searched are added without repeats, and the status,
+  result (when one is given) and next steps replaced (a Found or NotFound entry given no next steps
+  loses its old ones); otherwise it adds one.  `Matching(searched, item)` gives the places an item
+  names: the same place ignoring case and spacing, or a place starting with the item's words and
+  then a space or a bracket ("FreeBMD" names "FreeBMD deaths 1876-78 (Ashworth)", not "FreeBMDx").  `Combine(into, from)` joins two logs
   when people are merged or families combined: an entry for the same question is combined, keeping
   the later one's result, status and next steps.  `Tidy` sets an emptied log back to null.  The
   log is kept in the `.ftree` file only; GEDCOM export leaves it out (section 11).
@@ -1394,8 +1397,15 @@ replaces every object (section 8); an unknown id is answered with which tool lis
   refused, see below), `update_person` (also `preferred_parents`, a family id checked as one of
   the person's parent families), `log_research` (a person's or a couple's research log through
   `ResearchLog.Record`: owner, `fact_id` or `topic` (made from the fact when left out: type, date as
-  typed, the place's short name), status, `searched`, `result`, `next`; the same question again
-  updates its entry; the card shows the entry as it will read and whether it updates one), `add_note`
+  typed, the place's short name), status, `searched`, `result` (required for a new entry; left out,
+  an entry keeps its result), `next`, `remove_searched` (places to take out, by `Matching`, before
+  `searched` is added); the same question again updates its entry; the card shows the entry as it
+  will read, whether it updates one, and each place a removal takes out; a removal that matches
+  nothing, or from an entry that isn't there, is refused before the card
+  (`AssistantTool.RefuseBeforeAsking`, through `Write`'s `refuse`), giving the entry's searched
+  places; the answer says what was removed and gives the entry as saved, in `research_context`'s
+  form, so the reply can report what is in the tree.  Added after a test on 15 November 2026 in which
+  the model said it had taken FreeBMD out of a log, which `log_research` couldn't do), `add_note`
   (a person's or a couple's notes: adds `[15 Nov 2026] text  Source: source` after what is there,
   never replaces it; the same text already there is not added again; the card shows the whole
   paragraph), `delete_person`, `merge_people`, `set_home_person`,
@@ -2113,7 +2123,9 @@ answered "Do all three" and "All of them" with more menus (the code that goes wi
 sections 22.2 and 25.4):
 
 - A place goes in a log's searched list only when a search ran there and its results were read;
-  a search form, a refused site or a failed page is not a search, and goes in next steps.
+  a search form, a refused site or a failed page is not a search, and goes in next steps.  To take
+  a place out of a searched list, call `log_research` with `remove_searched`, and say it was
+  removed only when the entry the tool gives back no longer lists it.
 - Never offer anything that costs money (a certificate, a subscription) or needs the person's
   sign-in; list it in the log's next steps for them, with the search to run.
 - "All", "both", "all of them" or "do all three" means every one in this request, then one report;
@@ -2274,6 +2286,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | 15 November 2026 | 0.4.0 (unreleased) | The Assistant's new conversation button is a speech bubble with a plus (`I.NewConversation`), and the Assistant shows the Mycelia mark in colour on the top bar, its panel header and empty state (`FoldPanel.IconImage`, `UiKit.EmptyState`'s picture), replacing `I.Assistant` (16, 16.1, 22.1, 26.1). |
 | 15 November 2026 | 0.4.0 (unreleased) | After a second test: the notice for a reply claiming changes that weren't made, `AssistantTool.RefuseBeforeAsking` (22.2); `fetch_url` refuses subscription and sign-in sites and repeat reads before asking, and flags a search form that ran no search (`WebFetch.FormNotRun`, 25.4); the FreeBMD row of the resources list; rules (25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | The pane's line of pages read (`AssistantTools.PagesRead`, 22.2); a search form at a bare address is flagged (`WebFetch.BareSearchForm`, 25.4). |
+| 15 November 2026 | 0.4.0 (unreleased) | `log_research` can take places out of a searched list (`remove_searched`, `ResearchLog.Matching`, 7, 22.3), refuses a removal that matches nothing before the card, keeps the result when none is given, and gives back the entry as saved; the rule (25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice B: the person panel's Research tab and a couple's log on its family card, the Research question window (15.2); Tools' research to-do (15.5); `PersonEditor.OpenTab` and `--person-tab` (14, 15.2); the sample tree's invented entries and the `person-research` help picture (28). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice A: `ResearchEntry` and `Research` on people and families, left out of the file while empty (5, 6); `ResearchLog` (7), joined by merging and combining (7.1), carried by tree merges (7.2), searched by Find (7.3), not in GEDCOM (11); `log_research`, research text checks on it and `add_note`, the log in `research_context`, `get_person` and `get_family` (22.3, 68 tools); rules (22.2, 25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |
