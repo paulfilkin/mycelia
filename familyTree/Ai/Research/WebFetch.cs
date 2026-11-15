@@ -8,7 +8,7 @@ namespace Mycelia.Ai.Research;
 /// <summary>What fetch_url got: the status, the type, the final address and the text (whole, before any slice is taken).</summary>
 public sealed record FetchResult(int Status, string Reason, string ContentType, string FinalUrl, string Text, bool IsHtml, bool Cut)
 {
-    /// <summary>The page is a search form that ran no search for what the address asked (<see cref="WebFetch.FormNotRun"/>).</summary>
+    /// <summary>The page is a search form that ran no search, for what the address asked or at all (<see cref="WebFetch.FormNotRun"/>).</summary>
     public bool FormNotRun { get; init; }
 }
 
@@ -122,11 +122,12 @@ public static class WebFetch
     /// parameters, and none of that parameter's words appear in the page's visible text.  A site whose search needs
     /// its form submitted (FreeBMD's posts it) gives back its empty form for such an address; a real results page shows
     /// the words searched for.  From a test on 15 November 2026, in which the model read FreeBMD's form ten times and
-    /// reported searches that never ran (TDD 25.4).
+    /// reported searches that never ran (TDD 25.4).  An address with no query is checked by <see cref="BareSearchForm"/>.
     /// </summary>
     public static bool FormNotRun(string html, string visibleText, Uri requested)
     {
-        if (requested.Query.Length < 2 || html.IndexOf("<form", StringComparison.OrdinalIgnoreCase) < 0) return false;
+        if (html.IndexOf("<form", StringComparison.OrdinalIgnoreCase) < 0) return false;
+        if (requested.Query.Length < 2) return BareSearchForm(html);
         var query = requested.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries)
             .Select(p => p.Split('=', 2))
             .Where(p => p.Length == 2)
@@ -148,6 +149,27 @@ public static class WebFetch
         if (searched.Count == 0) return false;
         return !searched.SelectMany(w => w).Any(word => visibleText.Contains(word, StringComparison.CurrentCultureIgnoreCase));
     }
+
+    private static readonly Regex FormBlock = new(@"<form\b([^>]*)>(.*?)</form>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.Compiled);
+    private static readonly Regex PostMethod = new(@"\bmethod\s*=\s*[""']?post\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// A search form read with no search in the address: a form that sends by POST, with a text box and a list to choose
+    /// from, and no password box or text area (a sign-in, comment or contact form).  Reading it searched nothing.  From a
+    /// test on 15 November 2026, in which the model read FreeBMD's form at its bare address and logged FreeBMD as searched.
+    /// </summary>
+    private static bool BareSearchForm(string html) =>
+        FormBlock.Matches(html).Any(f =>
+        {
+            if (!PostMethod.IsMatch(f.Groups[1].Value)) return false;
+            var body = f.Groups[2].Value;
+            if (body.Contains("<textarea", StringComparison.OrdinalIgnoreCase) || !body.Contains("<select", StringComparison.OrdinalIgnoreCase)) return false;
+            var kinds = InputTag.Matches(body).Select(m => Attribute.Matches(m.Value)
+                .Where(a => a.Groups[1].Value.Equals("type", StringComparison.OrdinalIgnoreCase))
+                .Select(a => (a.Groups[2].Success ? a.Groups[2].Value : a.Groups[3].Success ? a.Groups[3].Value : a.Groups[4].Value).ToLowerInvariant())
+                .FirstOrDefault() ?? "text").ToList();
+            return !kinds.Contains("password") && kinds.Any(k => k is "text" or "search");
+        });
 
     /// <summary>The address with the API's fixed parameters, and its key when it goes in the address; or the header to add.</summary>
     private static Uri Prepare(Uri uri, ResearchApi? api, Func<string, string> keyFor, List<string> secrets, out (string Name, string Value)? header)

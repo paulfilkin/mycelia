@@ -34,6 +34,11 @@ understand what changed without reading the diff.
   you to run.  A page already read in a request isn't fetched again.  If a reply says it changed
   the tree when nothing changed, the pane says so underneath.  Asked to do several things, it does
   them all before reporting, instead of asking again.
+- **The pane lists the web pages each request read**, from Mycelia's own record rather than the
+  reply, such as "Read 2 pages: discovery.nationalarchives.gov.uk (238 characters);
+  www.freebmd.org.uk (search form with no search run)."  A site's search page read with no search
+  in its address, such as FreeBMD's or the home pages of FreeCEN and FreeREG, is now recognised as
+  a form too, so the Assistant is told reading it searched nothing.
 - **The Assistant's button for starting again** is now a speech bubble with a plus, "New
   conversation".  It was a bin, which looked as if it would delete the selected person.  It still
   asks before forgetting the conversation.

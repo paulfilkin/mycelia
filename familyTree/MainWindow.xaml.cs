@@ -737,6 +737,7 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
     string IAssistantHost.ContextLine() => _tools.ContextLine();
     void IAssistantHost.BeginRequest() => _tools.BeginRequest();
     (int Changes, Func<string>? Revert) IAssistantHost.EndRequest() => _tools.EndRequest();
+    string? IAssistantHost.PagesRead() => _tools.PagesRead();
 
     // IToolHost: what the tree tools need from the window (TDD 22.3).
     AssistantSettings IToolHost.Settings => _settings.Assistant;

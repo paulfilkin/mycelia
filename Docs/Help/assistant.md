@@ -105,6 +105,8 @@ When a request has changed the tree, the pane ends it with a line such as "4 cha
 
 If a request changed nothing but the reply says it did ("I added...", "Updated the research log..."), the pane adds a line: "No changes were made to the tree in this request, whatever the reply above says."  Trust that line, and the changes line above, over the reply's wording.
 
+When the Assistant read web pages in a request, the pane also lists them, from Mycelia's own record rather than the reply: for example "Read 3 pages: discovery.nationalarchives.gov.uk (2 pages, 1,204 characters); www.freebmd.org.uk (search form with no search run)."  A site listed with "search form with no search run", a failed status or "not reached" was not searched, whatever the reply says.
+
 Every change the Assistant makes is also one ordinary Undo step (Ctrl+Z), except bookmarks, which are never undo steps.  Changes are not saved until you save the tree; the Assistant saves only when you ask it to, and asks first.
 
 ## What the AI model sees
@@ -196,7 +198,7 @@ Some things it doesn't try at all, so you aren't asked about them:
 
 - **Subscription and sign-in sites** (Ancestry, Findmypast, the British Newspaper Archive, MyHeritage, TheGenealogist, Fold3, Newspapers.com, and the GRO's own index) are refused without a card.  The Assistant puts the search to run there in the research log's next steps for you.
 - **A page it has already read** in the same request isn't fetched again.
-- **A search form that ran no search**, such as FreeBMD's (its search needs the site's form filled in), is recognised: the Assistant is told no search ran, so it doesn't report results or log the site as searched.  Run those searches yourself on the site.
+- **A search form that ran no search**, such as FreeBMD's search page or the home pages of FreeCEN and FreeREG (their searches need the site's form filled in), is recognised: the Assistant is told no search ran, so it doesn't report results or log the site as searched.  Run those searches yourself on the site.
 
 You can add more archives as MCP servers: see [MCP servers](mcp-servers.md).
 

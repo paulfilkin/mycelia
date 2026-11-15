@@ -1333,6 +1333,18 @@ the model's last reply says it did (`AssistantSession.ClaimsChanges`: a past-ten
 request, whatever the reply above says."  Added after a test on 15 November 2026 in which the model
 said it had updated a research log and added a note, and had changed nothing.
 
+**Pages read by a request.**  When `fetch_url` ran in the request, the pane adds one line from its
+own record (`AssistantTools.PagesRead`, through `IAssistantHost.PagesRead`), before the changes
+line: "Read 3 pages: discovery.nationalarchives.gov.uk (2 pages, 1,204 characters);
+www.freebmd.org.uk (search form with no search run)."  Each host gets the number of pages when
+more than one, the characters given to the model from pages that were read, and what went wrong
+with the others: a search form with no search run (section 25.4), a failed status, no text, no
+answer, not reached, or redirected elsewhere.  Calls refused before asking aren't reads and aren't
+listed.  `BeginRequest` clears the record; for other programs, which have no requests, it keeps
+the last 200 reads and no line is shown.  Added after a test on 15 November 2026 in which the
+model said it had searched sites it had only read the search forms of, so the person can see what
+was read whatever the reply says.
+
 **Refused before asking.**  A tool can refuse a call outright, before an approval card
 (`AssistantTool.RefuseBeforeAsking`, giving the sentence that is the result); the Assistant and calls
 from other programs (section 24) both check it first.  `fetch_url` uses it (section 25.4).
@@ -1961,8 +1973,14 @@ still pass.  A picture of the Sources workspace with the Web address field.
     of three or more letters in the page's visible text.  The answer says it is the site's search
     form, that no search was run and there are no results, not to record the site as searched,
     and to give the person the search; then the start of the form, at most 1,500 characters.  A
-    results page shows the words searched for, so it isn't flagged.  The resources list's FreeBMD
-    row says the same, so `suggest_resources` warns before a try.
+    results page shows the words searched for, so it isn't flagged.  An address with no query is
+    flagged when the page has a form sent by POST with a text box and a list to choose from, and
+    no password box or text area (`WebFetch.BareSearchForm`; a sign-in, comment or contact form
+    isn't a search form).  FreeBMD's search page and the home pages of FreeCEN and FreeREG are
+    such forms.  The answer starts with the same warning, then gives the whole page as usual, since
+    a home page holds more than its form.  Added after the model read FreeBMD's form at its bare
+    address and logged FreeBMD as searched.  The resources list's FreeBMD row says the same, so
+    `suggest_resources` warns before a try.
 - **`WebFetch`** (`Ai/Research/WebFetch.cs`): GET only; no user name or password in the address;
   its own `HttpClient` (`Mycelia/<version>` as the user agent, 45 seconds) with redirects
   followed by hand, at most five.  A call that ran without asking stops at a redirect to an address
@@ -2255,6 +2273,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | 15 November 2026 | 0.4.0 (unreleased) | Save shows unsaved changes (accent, a dot and its tooltip, 14); a button's green focus frame shows only for keyboard focus (`KeyboardFocusFrame`, 16), so Save no longer looks "saved" after a click. |
 | 15 November 2026 | 0.4.0 (unreleased) | The Assistant's new conversation button is a speech bubble with a plus (`I.NewConversation`), and the Assistant shows the Mycelia mark in colour on the top bar, its panel header and empty state (`FoldPanel.IconImage`, `UiKit.EmptyState`'s picture), replacing `I.Assistant` (16, 16.1, 22.1, 26.1). |
 | 15 November 2026 | 0.4.0 (unreleased) | After a second test: the notice for a reply claiming changes that weren't made, `AssistantTool.RefuseBeforeAsking` (22.2); `fetch_url` refuses subscription and sign-in sites and repeat reads before asking, and flags a search form that ran no search (`WebFetch.FormNotRun`, 25.4); the FreeBMD row of the resources list; rules (25.5). |
+| 15 November 2026 | 0.4.0 (unreleased) | The pane's line of pages read (`AssistantTools.PagesRead`, 22.2); a search form at a bare address is flagged (`WebFetch.BareSearchForm`, 25.4). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice B: the person panel's Research tab and a couple's log on its family card, the Research question window (15.2); Tools' research to-do (15.5); `PersonEditor.OpenTab` and `--person-tab` (14, 15.2); the sample tree's invented entries and the `person-research` help picture (28). |
 | 15 November 2026 | 0.4.0 (unreleased) | The research log, slice A: `ResearchEntry` and `Research` on people and families, left out of the file while empty (5, 6); `ResearchLog` (7), joined by merging and combining (7.1), carried by tree merges (7.2), searched by Find (7.3), not in GEDCOM (11); `log_research`, research text checks on it and `add_note`, the log in `research_context`, `get_person` and `get_family` (22.3, 68 tools); rules (22.2, 25.5). |
 | 15 November 2026 | 0.4.0 (unreleased) | Research that builds on the family's notes (25.5): `research_context` and `add_note` (22.3, 67 tools), the notes rule allowing labelled unconfirmed leads (22.2). |

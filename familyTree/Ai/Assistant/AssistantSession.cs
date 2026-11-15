@@ -33,6 +33,9 @@ public interface IAssistantHost
 
     /// <summary>A request has ended: how many changes it made, and how to revert them all.</summary>
     (int Changes, Func<string>? Revert) EndRequest();
+
+    /// <summary>One line saying which pages fetch_url read in the request, or null when it read none.</summary>
+    string? PagesRead();
 }
 
 /// <summary>
@@ -257,6 +260,10 @@ public sealed class AssistantSession
         finally
         {
             CloseOpenToolCalls();
+            // What fetch_url read, from its own record (TDD 22.2): from a test on 15 November 2026 in which the model
+            // reported searches that hadn't run.
+            if (_host.PagesRead() is { } pages)
+                Items.Add(new NoticeMessage(pages, false));
             // What the request changed in the tree, with Revert (TDD 22.3).
             var (changes, revert) = _host.EndRequest();
             if (changes > 0)

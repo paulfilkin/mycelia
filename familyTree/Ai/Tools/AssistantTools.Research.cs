@@ -131,6 +131,39 @@ public sealed partial class AssistantTools
     /// <summary>Addresses read in the current request (address, start and length), with the length of what came back and when.</summary>
     private readonly Dictionary<string, (int Length, DateTime When)> _fetched = [];
 
+    /// <summary>What fetch_url read in the current request, in order: the host, the characters given to the model, and
+    /// what went wrong (a search form with no search run, a failed status, no answer), or null.</summary>
+    private readonly List<(string Host, int Chars, string? Problem)> _reads = [];
+
+    /// <summary>Notes one read.  Other programs have no requests, so their reads are kept to the last 200.</summary>
+    private void NoteRead((string Host, int Chars, string? Problem) read)
+    {
+        if (_reads.Count >= 200) _reads.RemoveAt(0);
+        _reads.Add(read);
+    }
+
+    /// <summary>
+    /// One line from fetch_url's own record of what the request read, for the pane to show under the reply (TDD 22.2), or
+    /// null when nothing was read: "Read 2 pages: discovery.nationalarchives.gov.uk (238 characters); www.freebmd.org.uk
+    /// (search form with no search run)."  From a test on 15 November 2026, in which the model reported searches that hadn't
+    /// run, so the person can see what was read whatever the reply says.
+    /// </summary>
+    public string? PagesRead()
+    {
+        if (_reads.Count == 0) return null;
+        var hosts = _reads.GroupBy(r => r.Host, StringComparer.OrdinalIgnoreCase).Select(g =>
+        {
+            var parts = new List<string>();
+            int count = g.Count(), read = g.Count(r => r.Problem is null);
+            if (count > 1) parts.Add($"{count} pages");
+            if (read > 0) parts.Add($"{g.Where(r => r.Problem is null).Sum(r => r.Chars):N0} characters");
+            parts.AddRange(g.Where(r => r.Problem is not null).GroupBy(r => r.Problem!)
+                .Select(p => p.Count() > 1 ? $"{p.Key} {p.Count()} times" : p.Key));
+            return $"{g.Key} ({string.Join(", ", parts)})";
+        });
+        return $"Read {_reads.Count} page{(_reads.Count == 1 ? "" : "s")}: {string.Join("; ", hosts)}.";
+    }
+
     private static string FetchKey(JsonObject args) =>
         $"{args.Str("url")?.Trim()}|{Math.Max(0, args.Int("start", 0))}|{Math.Clamp(args.Int("max_chars", DefaultFetchChars), 500, MaxFetchChars)}";
 
@@ -175,14 +208,17 @@ public sealed partial class AssistantTools
         }
         catch (WebFetch.RedirectException ex)
         {
+            NoteRead((uri.Host, 0, "redirected elsewhere, not read"));
             return new ToolOutcome($"{uri.Host} redirected to {ex.Target}, which isn't one of the listed archive APIs or the sites the person always allows.  Call fetch_url with that address to read it; the person will be asked.", true, "Redirected elsewhere");
         }
         catch (TaskCanceledException) when (!cancel.IsCancellationRequested)
         {
+            NoteRead((uri.Host, 0, "no answer"));
             return new ToolOutcome($"{uri.Host} didn't answer in time.", true, "No answer");
         }
         catch (HttpRequestException ex)
         {
+            NoteRead((uri.Host, 0, "not reached"));
             return new ToolOutcome($"{uri.Host} couldn't be reached: {ex.Message}", true, "Not reached");
         }
 
@@ -191,11 +227,16 @@ public sealed partial class AssistantTools
         _fetched[FetchKey(args)] = (result.Text.Length, DateTime.Now);
         bool failed = result.Status >= 400;
         if (failed) max = Math.Min(max, 2000);
-        // A search form that ran no search: say so first, and give only the start of the form (WebFetch.FormNotRun).
-        if (result.FormNotRun && !failed)
+        // A search form that ran no search: say so first (WebFetch.FormNotRun).  An address that asked for a search gets
+        // only the start of the form; a bare address (a home page with its search form) gets the whole page after it.
+        bool formNotRun = result.FormNotRun && !failed;
+        const string NotRun = "search form with no search run";
+        var formWarning = $"This page is {uri.Host}'s search form, not results: no search was run, so there are no results to report.  The site needs its form filled in, which fetch_url can't do.  Don't record {uri.Host} as searched; give the person the search to run there, or put it in the research log's next steps.";
+        if (formNotRun && uri.Query.Length >= 2)
         {
+            NoteRead((uri.Host, 0, NotRun));
             var form = result.Text.Length > 1500 ? result.Text[..1500] + "..." : result.Text;
-            return new ToolOutcome($"This page is {uri.Host}'s search form, not results: no search was run for what the address asked, so there are no results to report.  The site needs its form filled in, which fetch_url can't do.  Don't record {uri.Host} as searched; give the person the search to run there, or put it in the research log's next steps.\n\nThe form, briefly:\n{form}", false, "Search form: no search run");
+            return new ToolOutcome($"{formWarning}\n\nThe form, briefly:\n{form}", false, "Search form: no search run");
         }
         var text = start >= result.Text.Length ? "" : result.Text.Substring(start, Math.Min(max, result.Text.Length - start));
         int end = start + text.Length;
@@ -206,7 +247,8 @@ public sealed partial class AssistantTools
             head += $"  The key in Options › Research may be wrong.";
         else if (failed && result.Status == 429)
             head += "  Too many requests: wait before asking again.";
-        var summary = failed ? $"{result.Status} {result.Reason}" : $"{result.Text.Length:N0} characters from {new Uri(result.FinalUrl).Host}";
-        return new ToolOutcome(head + "\n\n" + text, failed, summary);
+        NoteRead((uri.Host, text.Length, failed ? $"{result.Status} {result.Reason}".Trim() : formNotRun ? NotRun : result.Text.Length == 0 ? "no text" : null));
+        var summary = failed ? $"{result.Status} {result.Reason}" : formNotRun ? "Search form: no search run" : $"{result.Text.Length:N0} characters from {new Uri(result.FinalUrl).Host}";
+        return new ToolOutcome((formNotRun ? formWarning + "\n\n" : "") + head + "\n\n" + text, failed, summary);
     }
 }
