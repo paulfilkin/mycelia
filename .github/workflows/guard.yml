@@ -1,0 +1,102 @@
+# Pull request hygiene, and detection of commits that reach main without a pull request.
+# On a private repository GitHub Free has no branch rules, so this workflow records what a ruleset would
+# have refused. Where rules exist it still runs and simply agrees with them.
+name: Guard
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  pull-request:
+    name: Pull request hygiene
+    # Dependabot's pull requests have their own branch names and no issue, so they are not held to these rules.
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the branch name, the Closes line and the distance from main
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const problems = [];
+            if (!/^(feature|fix|docs|chore)\/\d+(-|$)/.test(pr.head.ref)) {
+              problems.push(`The branch "${pr.head.ref}" is not named feature/, fix/, docs/ or chore/ followed by the issue number.`);
+            }
+            if (!/(^|\n)\s*Closes #\d+/i.test(pr.body || '')) {
+              problems.push('The description has no "Closes #<issue>" line.');
+            }
+            const compare = await github.rest.repos.compareCommitsWithBasehead({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              basehead: `${pr.base.sha}...${pr.head.sha}`,
+            });
+            if (compare.data.behind_by > 10) {
+              problems.push(`The branch is ${compare.data.behind_by} commits behind main; the limit is 10. Update the branch.`);
+            }
+            if (problems.length) {
+              core.setFailed(problems.join('\n'));
+            } else {
+              core.info('Branch name, Closes line and distance from main are all fine.');
+            }
+
+  direct-push:
+    name: Direct push detection
+    # The first push to a new branch has no pull request by nature, so it is not reported.
+    if: github.event_name == 'push' && !github.event.created
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open an issue when a commit reached main without a pull request
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.sha;
+            const short = sha.slice(0, 7);
+            // GitHub links a commit to its pull request a few seconds after a merge, so a job that starts at once
+            // can find nothing. Under the convention's squash setting the merge commit's subject ends in "(#N)",
+            // and the pull request's merge_commit_sha is set at the moment of the merge, so that is checked
+            // first. The lookup is then retried, for a merge whose subject carries no number.
+            const subject = ((context.payload.head_commit && context.payload.head_commit.message) || '').split('\n')[0];
+            const fromSubject = /\(#(\d+)\)\s*$/.exec(subject);
+            if (fromSubject) {
+              const number = Number(fromSubject[1]);
+              try {
+                const pr = await github.rest.pulls.get({ owner, repo, pull_number: number });
+                if (pr.data.merged && pr.data.merge_commit_sha === sha) {
+                  core.info(`Commit ${short} came through pull request #${number}.`);
+                  return;
+                }
+              } catch (e) {
+                core.info(`Pull request #${number} named in the subject could not be read: ${e.message}`);
+              }
+            }
+            const wait = seconds => new Promise(resolve => setTimeout(resolve, seconds * 1000));
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              if (attempt > 1) await wait(20);
+              const pulls = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: sha });
+              const merged = pulls.data.find(p => p.merged_at);
+              if (merged) {
+                core.info(`Commit ${short} came through pull request #${merged.number}.`);
+                return;
+              }
+            }
+            const title = `Direct push to main: ${short}`;
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: 'chore', per_page: 100 });
+            if (!open.data.some(i => i.title === title)) {
+              await github.rest.issues.create({
+                owner, repo, title, labels: ['chore'],
+                body: `Commit ${sha} reached main without a pull request. Pushed by @${context.actor}.\n\n` +
+                  'Every change is meant to arrive through a pull request (CONTRIBUTING.md section 2). ' +
+                  'If this was deliberate, say why here and close the issue; otherwise open a pull request for the follow-up.',
+              });
+            }
+            core.setFailed(`Commit ${short} reached main without a pull request.`);

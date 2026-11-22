@@ -1,0 +1,16 @@
+#!/bin/sh
+# Designated Driver convention v1: no direct pushes to main. Every change arrives through a pull request.
+# Set DESIGNATED_DRIVER_ALLOW_MAIN=1 in the shell for the one push you mean, for example the very first one.
+# REPO_STARTER_ALLOW_MAIN, its name before the app was renamed, still works.
+branch="main"
+[ -n "$DESIGNATED_DRIVER_ALLOW_MAIN" ] && exit 0
+[ -n "$REPO_STARTER_ALLOW_MAIN" ] && exit 0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/$branch" ]; then
+    echo "pre-push: refusing to push to $branch; open a pull request from a branch instead" >&2
+    echo "pre-push: to push anyway, set DESIGNATED_DRIVER_ALLOW_MAIN=1 for this one command" >&2
+    exit 1
+  fi
+done
+exit 0

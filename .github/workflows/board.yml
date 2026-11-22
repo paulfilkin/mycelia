@@ -1,0 +1,28 @@
+# Adds new issues and pull requests to the project board. GitHub's own project automations do the rest: a new
+# item lands in Todo, and a closed issue or merged pull request moves to Done.
+# It needs the PROJECT_TOKEN secret, a classic token with the repo and project scopes, because the
+# workflow's own GITHUB_TOKEN cannot reach a user-owned project. Without the secret the step is skipped and
+# the workflow passes; Designated Driver adds the secret when it is given the token.
+name: Board
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request:
+    types: [opened, reopened]
+
+permissions: {}
+
+jobs:
+  board:
+    name: Add to the board
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+    steps:
+      - name: Add to the board
+        if: env.PROJECT_TOKEN != ''
+        uses: actions/add-to-project@v2.0.1
+        with:
+          project-url: https://github.com/users/paulfilkin/projects/9
+          github-token: ${{ env.PROJECT_TOKEN }}

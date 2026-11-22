@@ -1,0 +1,40 @@
+# Runs on every pull request to main and every change that lands on it.
+# The job name "Build and test" is the check Designated Driver and the branch rules look for.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Check that no data, keys or certificates are committed
+        shell: pwsh
+        run: |
+          $bad = git ls-files | Where-Object { $_ -match '(^|/)App_Data/|(^|/)keys/|\.(pfx|p12|pem|key|snk)$|(^|/)\.env$' }
+          if ($bad) {
+            Write-Error ("These files must not be in the repository:`n" + ($bad -join "`n"))
+            exit 1
+          }
+          Write-Host "No data, keys or certificates found."
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build (warnings are errors)
+        run: dotnet build "familyTree/Mycelia.csproj" -c Release -warnaserror

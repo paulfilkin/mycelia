@@ -1,0 +1,43 @@
+#!/bin/sh
+# Designated Driver convention v1: the commit message rules, the same ones the tool applies.
+# First line no longer than 70 characters, starting with a capital letter and an imperative verb, no
+# trailing full stop, and no em-dash anywhere. Merge, fixup, squash, amend and revert messages pass.
+file="$1"
+subject=$(grep -v '^#' "$file" | sed -n '1p')
+
+case "$subject" in
+  Merge\ *|fixup!*|squash!*|amend!*|Revert\ *) exit 0 ;;
+esac
+
+fail=0
+say() { echo "commit-msg: $1" >&2; fail=1; }
+
+if [ -z "$subject" ]; then
+  say "the first line is empty"
+else
+  length=$(printf '%s' "$subject" | wc -m | tr -d ' ')
+  [ "$length" -gt 70 ] && say "the first line is $length characters; keep it to 70"
+  case "$subject" in
+    *.) say "the first line ends with a full stop" ;;
+  esac
+  case "$subject" in
+    [a-z]*) say "the first line starts with a lower-case letter" ;;
+  esac
+  # The same list of past-tense and third-person words the tool's Save and share warns about. A list, not a
+  # suffix rule: "Bring" and "Address" are imperatives too.
+  first=$(printf '%s' "$subject" | sed 's/[^A-Za-z].*//' | tr 'A-Z' 'a-z')
+  case "$first" in
+    added|adds|adding|fixed|fixes|fixing|updated|updates|updating|removed|removes|removing|changed|changes|changing|moved|moves|moving|renamed|renames|renaming|improved|improves|improving|refactored|refactors|refactoring|implemented|implements|implementing|corrected|corrects|correcting|created|creates|creating|deleted|deletes|deleting|made|makes|making|replaced|replaces|replacing|documented|documents|documenting|reworded|rewrote|tidied|tidies|cleaned|cleans|merged|merges|reverted|reverts|introduced|introduces|allowed|allows|enabled|enables|disabled|disables|handled|handles|wip|misc|stuff)
+      say "start with an imperative verb (\"Add\", not \"$first\")" ;;
+  esac
+fi
+
+if grep -v '^#' "$file" | grep -q "$(printf '\342\200\224')"; then
+  say "the message contains an em-dash; use a hyphen"
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "commit-msg: the message was not accepted; edit it and commit again" >&2
+  exit 1
+fi
+exit 0

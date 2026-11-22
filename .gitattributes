@@ -1,0 +1,7 @@
+# Normalise line endings in the repository. Windows scripts keep CRLF when checked out; the hooks and
+# other shell scripts stay LF, because sh will not run a CRLF script.
+* text=auto
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.sh text eol=lf
+.githooks/* text eol=lf
