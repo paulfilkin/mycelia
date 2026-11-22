@@ -1,0 +1,12 @@
+# Weekly version updates for the package ecosystems Designated Driver found. Security updates are turned on
+# in the repository settings, not here.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly

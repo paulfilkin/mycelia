@@ -1,0 +1,37 @@
+{
+  "conventionVersion": 1,
+  "setUp": "2026-11-22",
+  "language": "dotnet",
+  "options": {
+    "releaseWorkflow": false,
+    "codeQl": true,
+    "discussions": true,
+    "reviewRequired": true
+  },
+  "board": {
+    "owner": "paulfilkin",
+    "number": 9
+  },
+  "selfTestCommand": "",
+  "requiredCheck": "Build and test",
+  "notAvailable": [],
+  "answers": {
+    "description": "Family trees, connected to their sources. A Windows family tree program with GEDCOM 5.5.1 and an Assistant that reaches archives through MCP.",
+    "projectFile": "familyTree\\Mycelia.csproj",
+    "testProject": "",
+    "buildCommand": "",
+    "testCommand": "",
+    "checklist": [
+      "one-issue",
+      "builds",
+      "tests",
+      "docs",
+      "no-secrets",
+      "no-packages",
+      "style"
+    ],
+    "behindLimit": 10,
+    "topics": []
+  },
+  "hasAnswers": true
+}
