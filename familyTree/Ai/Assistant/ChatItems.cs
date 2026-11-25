@@ -26,7 +26,10 @@ public sealed class UserMessage(string text, string context) : ChatItem
 
 public sealed class AssistantMessage(string text) : ChatItem
 {
-    public string Text { get; } = text;
+    private string _text = text;
+
+    /// <summary>Grows while a streamed reply (Ollama) is written.</summary>
+    public string Text { get => _text; set { _text = value; RaiseChanged(); } }
 }
 
 public sealed class NoticeMessage(string text, bool isError) : ChatItem

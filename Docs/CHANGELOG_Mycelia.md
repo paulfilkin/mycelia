@@ -3,6 +3,30 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
+## 0.5.0 - unreleased
+
+The Assistant works properly with Ollama on your own computer.
+
+### Changed
+
+- **Ollama gets the whole request.**  Mycelia's instructions and tools come to about 12,700
+  tokens, and Ollama gave a model such as qwen3:8b room for only 4,096 on an 8 GB graphics card,
+  so it dropped most of every request without saying so and the model ignored rules and tools.
+  Mycelia now talks to Ollama directly and sets the context size, 16,384 tokens by default, in
+  Options › AI model.  A request that is still too large is refused with a message saying so,
+  rather than cut.
+- **Thinking is off for Ollama models** unless you turn it on in Options › AI model.  Models such
+  as qwen3 otherwise think before every answer and every tool, which is slow and fills the context.
+- **Answers from Ollama appear as they are written**, instead of all at once at the end.
+- **Mycelia can start and stop Ollama.**  Options › AI model shows whether Ollama is running, with
+  Start and Stop, and can start it whenever a request needs it.  Ollama started by Mycelia stops
+  when Mycelia closes, even if Mycelia crashes; an Ollama you started yourself keeps running.
+- **Clearer messages for a service on your computer.**  The Model list shows the models Ollama or
+  LM Studio has.  When Ollama isn't running, or doesn't have the model you chose, the Assistant
+  says so and names the models it has, instead of "couldn't be reached" or "not found".
+- **Test the model shows Ollama's figures:** the context size, the tokens read and written, and
+  how long the model took to load, read the request and answer.
+
 ## 0.4.1 - 15 November 2026
 
 Tidying a research log in one step, the research log in the Person view, and an Assistant that

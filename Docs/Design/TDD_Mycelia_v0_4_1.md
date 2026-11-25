@@ -1313,7 +1313,42 @@ in a service's error is used for the rest of the session.
 **Providers** (`ChatProviders`): the Anthropic Messages API, and OpenAI chat completions with
 function tools for OpenAI and any compatible address (Ollama, LM Studio, Gemini, Mistral).  A
 compatible service on localhost or 127.0.0.1 needs no key and is shown as a "Local AI service".
-Default model `claude-sonnet-5-5`, answers up to 16,000 tokens.
+Default model `claude-sonnet-5-5`, answers up to 16,000 tokens.  `IChatProvider.CompleteAsync`
+takes an optional `onText`, called with each piece of a streamed reply; only Ollama streams.
+
+**Ollama** (`OllamaChatProvider`, `OllamaServer`): an OpenAI-compatible address on this computer
+at port 11434 is Ollama's, and is called on Ollama's own `/api/chat` at the same host and port,
+since only that one sets the context size and thinking.  Each request sends `options.num_ctx`
+(Options › AI model, 2,048 to 131,072, 16,384 by default), `num_predict` (the longest answer),
+`think` (off unless turned on) and `truncate: false`, so a request larger than the context is
+refused ("request (12673 tokens) exceeds the available context size (8192 tokens)") rather than
+cut from the start without a word; the pane then names the context size.  Tool arguments go as an
+object, a tool result carries `tool_name`, and arguments given back as a JSON string are read too.
+The reply streams a line of JSON per piece: the pane shows the text as it comes, drawn again at
+most every 150 ms, and the last line's counts and times become `ChatReply.Stats` (`ReplyStats`),
+which Test the model shows.
+
+Measured on 25 November 2026 with Ollama 0.40.17 and `qwen3:8b` on an 8 GB graphics card: the
+first request of a conversation is 12,671 tokens, 2,418 for the system prompt and the request and
+about 10,250 for the 68 built-in tools.  Ollama's own choice of context on that card is 4,096, so
+two thirds of every request was being dropped.  At 16,384 the model runs wholly on the graphics card
+(6.3 GB), loads in 7 s and reads that first prompt in 11 s; later requests read the same start from
+Ollama's cache in 0.1 s.  At 24,576 (7.4 GB) and 32,768 (8.2 GB) a share runs on the processor and
+reading slows to 14 s and 16 s.  Sending a local model less is issue #8.
+
+Before a request to a service on this computer, `PrepareAsync` reads its models
+(`InstalledModelsAsync`, `GET {base}/models`) and, when the chosen one isn't there, names the ones
+it has instead of sending the request (`MissingModel`; Ollama reads a name without a tag as
+`name:latest`).  For Ollama it first checks the server answers (`/api/version`): when it doesn't,
+the request says Ollama isn't running, or, with "Start Ollama when a request needs it"
+(`AutoStartOllama`), starts it.  The request then isn't kept in the conversation, so asking again
+works.
+
+`OllamaServer` (one per session, `AssistantSession.Ollama`) finds `ollama.exe` (the per-user
+install, Program Files, then the path), runs `ollama serve` with no window and waits up to 30
+seconds for it to answer.  The process is put in a Windows job object with kill-on-close, so the
+server and the model runners it starts end when Mycelia ends, even after a crash; Stop and
+`MainWindow.OnClosing` end it at once.  A server started any other way is never stopped.
 
 **System prompt:** what Mycelia is; how to work (do a clear request without asking for
 confirmation, ask only when ambiguous, destructive or blocked, report only checks made, no closing
@@ -1630,12 +1665,16 @@ shows its answer.
 
 Five tabs after the three general ones:
 
-- **AI model:** provider, model (suggestions per provider, any name can be typed), address (empty
-  for Anthropic's and OpenAI's own; suggestions for Ollama, LM Studio, Gemini and Mistral), API
-  key (kept per provider, DPAPI-encrypted, with a note saying whether one is needed), longest
-  answer (256 to 64,000 tokens) and Test the model, which asks for the word OK and shows the
-  answer and token counts.  The page says that requests and the tree details the tools read go to
-  the service, and that a service on this computer keeps them here.
+- **AI model:** provider, model (suggestions per provider, any name can be typed; for a service on
+  this computer, the models it has), address (empty for Anthropic's and OpenAI's own; suggestions
+  for Ollama, LM Studio, Gemini and Mistral), API key (kept per provider, DPAPI-encrypted, with a
+  note saying whether one is needed), longest answer (256 to 64,000 tokens) and Test the model,
+  which asks for the word OK and shows the answer and token counts, or for Ollama the context size
+  and Ollama's figures.  For an Ollama address (22.2) three more rows show: Ollama, whether it is
+  running, with Start and Stop (which act at once, not on OK; Stop only for a server Mycelia
+  started) and Start Ollama when a request needs it; Context size; and Thinking.  The page says
+  that requests and the tree details the tools read go to the service, and that a service on this
+  computer keeps them here.
 - **Assistant:** your instructions (added to every conversation), steps per request, connect on
   start, never ask before a tool runs, living people sent to the AI model (names and relationships
   only, full details, or not at all, with a note that a service on this computer keeps everything
@@ -2339,6 +2378,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 25 November 2026 | 0.5.0 (unreleased) | Ollama's own API (#7): `OllamaChatProvider` with the context size, thinking, `truncate: false` and streaming; `OllamaServer` with a job object; installed models and the checks before a request (`PrepareAsync`); `AssistantSettings.OllamaContext`, `OllamaThink`, `AutoStartOllama`; the measured prompt and tool tokens (22.2); the Ollama rows of Options › AI model (22.7). |
 | 25 November 2026 | 0.4.1 | This design record copied from `TDD_Mycelia_v0_3_0.md` for 0.4.1, which 0.4.0 and 0.4.1 were released under. |
 | 15 November 2026 | 0.4.0 (unreleased) | Save shows unsaved changes (accent, a dot and its tooltip, 14); a button's green focus frame shows only for keyboard focus (`KeyboardFocusFrame`, 16), so Save no longer looks "saved" after a click. |
 | 15 November 2026 | 0.4.0 (unreleased) | The Assistant's new conversation button is a speech bubble with a plus (`I.NewConversation`), and the Assistant shows the Mycelia mark in colour on the top bar, its panel header and empty state (`FoldPanel.IconImage`, `UiKit.EmptyState`'s picture), replacing `I.Assistant` (16, 16.1, 22.1, 26.1). |

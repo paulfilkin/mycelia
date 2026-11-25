@@ -229,7 +229,13 @@ public sealed class AssistantPane : Border
         var host = new ContentControl { Content = Render(item), Focusable = false };
         _hosts[item] = host;
         // Items change on the UI thread (the session runs there); redraw once the change has finished.
-        Action handler = () => Dispatcher.BeginInvoke(() => { if (_hosts.ContainsKey(item)) host.Content = Render(item); });
+        Action handler = () => Dispatcher.BeginInvoke(() =>
+        {
+            if (!_hosts.ContainsKey(item)) return;
+            host.Content = Render(item);
+            // A streamed reply (Ollama) grows as it is written: keep its end in view.
+            if (item is AssistantMessage && _session.Items.Count > 0 && _session.Items[^1] == item) ScrollToEnd();
+        });
         _handlers[item] = handler;
         item.Changed += handler;
         _items.Children.Add(host);

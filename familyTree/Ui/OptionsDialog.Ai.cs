@@ -28,6 +28,22 @@ public sealed partial class OptionsDialog
     private TextBlock _modelTestResult = null!;
     private readonly Dictionary<ModelProvider, string> _keys = [];
 
+    // AI model: Ollama on this computer (TDD 22.2, 22.7)
+    private StackPanel _ollamaPanel = null!;
+    private TextBlock _ollamaStatus = null!;
+    private Button _startOllama = null!;
+    private Button _stopOllama = null!;
+    private CheckBox _autoStartOllama = null!;
+    private TextBox _ollamaContext = null!;
+    private CheckBox _ollamaThink = null!;
+    private int _modelListVersion;
+
+    /// <summary>
+    /// Ollama's server as Mycelia runs it; Start and Stop act at once, not on OK.  Null for a check picture, which then
+    /// reads nothing from the service.
+    /// </summary>
+    public OllamaServer? Ollama { get; set; }
+
     // Assistant
     private TextBox _instructions = null!;
     private TextBox _maxSteps = null!;
@@ -193,18 +209,20 @@ public sealed partial class OptionsDialog
                 _model.Text = ChatProviders.DefaultModel(current);
             _apiKey.Password = _keys[current];
             UpdateKeyNote();
+            AddressChanged();
         };
         _apiKey.PasswordChanged += (_, _) => { _keys[current] = _apiKey.Password; UpdateKeyNote(); };
-        _endpoint.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((_, _) => UpdateKeyNote()));
+        _endpoint.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((_, _) => { UpdateKeyNote(); AddressChanged(); }));
 
         panel.Children.Add(Row("Provider", _provider));
-        panel.Children.Add(Row("Model", _model, "Pick one or type the model name the service uses."));
+        panel.Children.Add(Row("Model", _model, "Pick one or type the model name the service uses.  For a service on this computer, the list shows the models it has."));
         panel.Children.Add(Row("Address", _endpoint, "Leave empty for Anthropic's or OpenAI's own address.  For an OpenAI-compatible service, its base address (ending in /v1 or /openai)."));
         var keyPanel = new StackPanel();
         keyPanel.Children.Add(_apiKey);
         keyPanel.Children.Add(_keyNote);
         panel.Children.Add(Row("API key", keyPanel));
         panel.Children.Add(Row("Longest answer", _maxTokens, "Tokens per answer (256 to 64000)."));
+        panel.Children.Add(BuildOllamaPanel(a));
 
         var test = SmallButton("Test the model", async (_, _) => await TestModelAsync());
         test.HorizontalAlignment = HorizontalAlignment.Left;
@@ -214,10 +232,116 @@ public sealed partial class OptionsDialog
         testPanel.Children.Add(_modelTestResult);
         panel.Children.Add(Row(string.Empty, testPanel));
         UpdateKeyNote();
+        AddressChanged();
         return panel;
     }
 
+    /// <summary>Ollama's own settings, shown for an Ollama address on this computer: whether it is running, the context size and thinking.</summary>
+    private FrameworkElement BuildOllamaPanel(AssistantSettings a)
+    {
+        _ollamaPanel = new StackPanel();
+        _ollamaStatus = new TextBlock { TextWrapping = TextWrapping.Wrap, Foreground = UiKit.Brush("Ink"), Margin = new Thickness(0, 6, 0, 6) };
+        _startOllama = SmallButton("Start", async (_, _) => await StartOllamaAsync());
+        _stopOllama = SmallButton("Stop", async (_, _) => { Ollama?.Stop(); await RefreshOllamaAsync(); });
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+        buttons.Children.Add(_startOllama);
+        buttons.Children.Add(_stopOllama);
+        _autoStartOllama = new CheckBox { Content = "Start Ollama when a request needs it", IsChecked = a.AutoStartOllama };
+        var server = new StackPanel();
+        server.Children.Add(_ollamaStatus);
+        server.Children.Add(buttons);
+        server.Children.Add(_autoStartOllama);
+        _ollamaPanel.Children.Add(Row("Ollama", server,
+            "Mycelia runs Ollama with no window and stops it when Mycelia closes.  An Ollama started another way (its own app, a terminal) is never stopped."));
+
+        _ollamaContext = Box(a.OllamaContext.ToString());
+        _ollamaContext.Width = 100;
+        _ollamaContext.HorizontalAlignment = HorizontalAlignment.Left;
+        _ollamaPanel.Children.Add(Row("Context size", _ollamaContext,
+            $"Tokens the model reads at once: the instructions, the tools and the conversation ({AssistantSettings.MinOllamaContext} to {AssistantSettings.MaxOllamaContext}, {AssistantSettings.DefaultOllamaContext} by default).  Ollama's own choice is often too small for Mycelia's tools.  A larger context needs more memory."));
+
+        _ollamaThink = new CheckBox { Content = "Let the model think before it answers", IsChecked = a.OllamaThink };
+        _ollamaPanel.Children.Add(Row("Thinking", _ollamaThink, "For models that can (qwen3, for example).  Off by default: thinking is slower and takes up the context."));
+        return _ollamaPanel;
+    }
+
+    private bool IsOllama => OllamaServer.IsOllamaEndpoint(SelectedProvider, _endpoint.Text);
+
+    /// <summary>The provider or address changed: show Ollama's settings for an Ollama address, and read a local service's models.</summary>
+    private void AddressChanged()
+    {
+        if (_ollamaPanel is null)
+            return;
+        _ollamaPanel.Visibility = IsOllama ? Visibility.Visible : Visibility.Collapsed;
+        _ = RefreshOllamaAsync();
+        _ = RefreshModelsAsync();
+    }
+
+    /// <summary>Whether Ollama is running, for the line above Start and Stop.</summary>
+    private async Task RefreshOllamaAsync()
+    {
+        if (!IsOllama || Ollama is null)
+        {
+            _startOllama.IsEnabled = _stopOllama.IsEnabled = false;
+            return;
+        }
+        // A port nobody listens on takes Windows a few seconds to refuse.
+        if (_ollamaStatus.Text.Length == 0)
+            _ollamaStatus.Text = "Looking for Ollama…";
+        string endpoint = _endpoint.Text;
+        bool running = await OllamaServer.IsRunningAsync(endpoint);
+        if (endpoint != _endpoint.Text)
+            return;
+        bool installed = OllamaServer.FindExecutable() is not null;
+        _ollamaStatus.Text = !running && !installed ? "Ollama isn't installed on this computer (ollama.com)."
+            : !running ? "Ollama isn't running."
+            : Ollama.StartedHere ? "Running, started by Mycelia." : "Running.";
+        _startOllama.IsEnabled = !running && installed;
+        _stopOllama.IsEnabled = running && Ollama.StartedHere;
+    }
+
+    private async Task StartOllamaAsync()
+    {
+        if (Ollama is null)
+            return;
+        _startOllama.IsEnabled = false;
+        _ollamaStatus.Text = "Starting Ollama…";
+        var problem = await Ollama.StartAsync(_endpoint.Text);
+        await RefreshOllamaAsync();
+        await RefreshModelsAsync();
+        if (problem is not null)
+            _ollamaStatus.Text = "Ollama didn't start.  " + problem;
+    }
+
+    /// <summary>A service on this computer lists the models it has; any other keeps the suggestions.</summary>
+    private async Task RefreshModelsAsync()
+    {
+        int version = ++_modelListVersion;
+        var provider = SelectedProvider;
+        if (Ollama is null || !ChatProviders.IsLocal(provider, _endpoint.Text))
+        {
+            SetModelList(ChatProviders.SuggestedModels(provider));
+            return;
+        }
+        var installed = await ChatProviders.InstalledModelsAsync(provider, _endpoint.Text);
+        // A later change of provider or address has its own list on the way.
+        if (version == _modelListVersion)
+            SetModelList(installed.Count > 0 ? installed : ChatProviders.SuggestedModels(provider));
+    }
+
+    /// <summary>Sets the Model list without changing the name typed in the box.</summary>
+    private void SetModelList(IReadOnlyList<string> models)
+    {
+        string text = _model.Text;
+        _model.ItemsSource = models;
+        _model.Text = text;
+    }
+
     private ModelProvider SelectedProvider => (ModelProvider)Math.Max(0, _provider.SelectedIndex);
+
+    private int OllamaContextValue => int.TryParse(_ollamaContext.Text, out int size)
+        ? Math.Clamp(size, AssistantSettings.MinOllamaContext, AssistantSettings.MaxOllamaContext)
+        : AssistantSettings.DefaultOllamaContext;
 
     private void UpdateKeyNote()
     {
@@ -232,9 +356,13 @@ public sealed partial class OptionsDialog
         _modelTestResult.Text = "Asking the model…";
         try
         {
-            var provider = ChatProviders.Create(new ChatProviderOptions(SelectedProvider, _model.Text.Trim(), _apiKey.Password.Trim(), _endpoint.Text.Trim(), 64));
+            var provider = ChatProviders.Create(new ChatProviderOptions(SelectedProvider, _model.Text.Trim(), _apiKey.Password.Trim(), _endpoint.Text.Trim(), 64,
+                OllamaContextValue, _ollamaThink.IsChecked == true));
             var reply = await provider.CompleteAsync("Reply with the single word OK.", new ChatTurn[] { new UserTurn("Test") }, Array.Empty<ToolSpec>(), CancellationToken.None);
-            _modelTestResult.Text = $"It answered: {reply.Text.Trim()}  ({reply.InputTokens} tokens in, {reply.OutputTokens} out)";
+            // Ollama gives its own figures: with them the first answer shows how long the model takes to load.
+            _modelTestResult.Text = reply.Stats is { } stats
+                ? $"It answered: {reply.Text.Trim()}  (context {OllamaContextValue:N0} tokens; {stats})"
+                : $"It answered: {reply.Text.Trim()}  ({reply.InputTokens} tokens in, {reply.OutputTokens} out)";
         }
         catch (ChatException ex)
         {
@@ -749,6 +877,9 @@ public sealed partial class OptionsDialog
         foreach (var (key, value) in _keys)
             a.SetApiKey(key, value);
         a.MaxTokens = int.TryParse(_maxTokens.Text, out int tokens) ? Math.Clamp(tokens, 256, 64000) : AssistantSettings.DefaultMaxTokens;
+        a.OllamaContext = OllamaContextValue;
+        a.OllamaThink = _ollamaThink.IsChecked == true;
+        a.AutoStartOllama = _autoStartOllama.IsChecked == true;
         a.MaxSteps = int.TryParse(_maxSteps.Text, out int steps) ? Math.Clamp(steps, 1, 100) : 20;
         a.Instructions = _instructions.Text;
         a.ConnectOnStart = _connectOnStart.IsChecked == true;
