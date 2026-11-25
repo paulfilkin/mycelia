@@ -1301,7 +1301,8 @@ The session runs on the UI thread: its awaits resume there, so tools can touch t
    calls; otherwise run each call (asking first where the policy is Ask) and add the results.
 3. Tool results longer than 40,000 characters are cut.  Stop, closing the window or opening another
    tree closes any open tool calls with a "Cancelled" result, so the next request is valid.  An
-   empty reply is not kept.  A reply cut short by the token limit says so.  A service error that
+   empty reply is not kept, and the pane says the model gave no answer (for a local model, after
+   asking once more, see below).  A reply cut short by the token limit says so.  A service error that
    looks like a too-long conversation suggests `/clear`.
 
 **Tool limit** (`ToolBudget`, unchanged from multifariousStudio): OpenAI and compatible services
@@ -1334,7 +1335,48 @@ about 10,250 for the 68 built-in tools.  Ollama's own choice of context on that 
 two thirds of every request was being dropped.  At 16,384 the model runs wholly on the graphics card
 (6.3 GB), loads in 7 s and reads that first prompt in 11 s; later requests read the same start from
 Ollama's cache in 0.1 s.  At 24,576 (7.4 GB) and 32,768 (8.2 GB) a share runs on the processor and
-reading slows to 14 s and 16 s.  Sending a local model less is issue #8.
+reading slows to 14 s and 16 s.
+
+**A model on this computer is sent less** (any local address, `ChatProviders.IsLocal`; hosted models
+are unchanged):
+
+- **Tool groups** (`ToolGroups`): people (18 tools), family history (9), sources (6), places (3),
+  media (3), research (6) and whole tree (9), and one group per connected MCP server
+  (`mcp_<server id>`).  The other 14 are always sent: get_context, search_people, get_person,
+  get_family, select_person, show_workspace, read_help, parse_date, undo, and the tools that say
+  what the tree holds (list_sources, list_places, list_media, list_repositories,
+  tree_statistics).  The groups for the workspace go with each request: People and the Person
+  view send people and research, Places places, Sources sources, Media media, Home and Charts
+  family history, Tools whole tree.  While a group is missing, `use_tools` is sent too; the group
+  it names is added for the rest of the conversation (`_addedGroups`, cleared with the
+  conversation), from the next step.  A call to a tool of a group not sent adds the group too,
+  but Ollama drops a call to a tool that wasn't in the request, so the reply comes back empty
+  (qwen3:8b and `list_places`, 25 November 2026).  Then the step is asked again once, with a note
+  that isn't kept in the conversation naming each missing group's tools and saying to call
+  `use_tools` first (`EmptyReplyNote`).  An empty reply that isn't cut short by the token limit
+  says so in the pane ("The model gave no answer"), from any provider.
+- **A shorter system prompt** (`ShortPrompt`): the same rules written more tightly, the citation
+  rule only when the people, sources or research tools are sent, the Research section only with
+  the research tools, and the groups `use_tools` can add.  The context, the MCP servers and the
+  person's own instructions end both prompts (`AppendContext`).
+- **Fitting the conversation** (`ContextFit`, Ollama only, whose context size is known): before each
+  step the turns are estimated (4.0 characters a token for the prompt, 4.3 for tools, 3.0 for the
+  conversation) against the context less room for the reply (a quarter of it, at most 2,048).  Old
+  tool results are replaced by "[Left out to fit the context.]" first, then whole old exchanges
+  are left out, oldest first; the system prompt, the tools and the current request are always
+  sent, and a result in the current request that is still too large is cut with a note to ask for
+  less.  Only what is sent is trimmed.  Once trimming starts it happens on every request, so the
+  pane says so once per conversation (`_saidLeftOut`, reset by clearing it or opening another
+  tree).
+
+Measured with qwen3:8b on 25 November 2026, on People: the first request went from 12,671 tokens
+(68 tools) to 7,528 (39 tools), and later steps read their start from Ollama's cache in 0.2 to
+1.2 s, except after the tools change.  Five questions that each needed a tool (a person, their
+descendants, every place, every source, a timeline) were each answered.  At a context of 10,240
+every request stayed between 8,000 and 8,600 tokens as tool results and then exchanges were left
+out, none was refused, and the first question of the conversation was still recalled.  A
+relationship question did not lead the model to ask for the family history tools: it read the
+person and offered to search further.
 
 Before a request to a service on this computer, `PrepareAsync` reads its models
 (`InstalledModelsAsync`, `GET {base}/models`) and, when the chosen one isn't there, names the ones
@@ -2378,6 +2420,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 25 November 2026 | 0.5.0 (unreleased) | A local model is sent less (#8): `ToolGroups` and `use_tools`, the note after an empty reply (`EmptyReplyNote`) and the notice for one from any provider, `ShortPrompt` and `AppendContext`, `ContextFit` for Ollama, the pane's tools line; the measurements (22.2). |
 | 25 November 2026 | 0.5.0 (unreleased) | Ollama's own API (#7): `OllamaChatProvider` with the context size, thinking, `truncate: false` and streaming; `OllamaServer` with a job object; installed models and the checks before a request (`PrepareAsync`); `AssistantSettings.OllamaContext`, `OllamaThink`, `AutoStartOllama`; the measured prompt and tool tokens (22.2); the Ollama rows of Options › AI model (22.7). |
 | 25 November 2026 | 0.4.1 | This design record copied from `TDD_Mycelia_v0_3_0.md` for 0.4.1, which 0.4.0 and 0.4.1 were released under. |
 | 15 November 2026 | 0.4.0 (unreleased) | Save shows unsaved changes (accent, a dot and its tooltip, 14); a button's green focus frame shows only for keyboard focus (`KeyboardFocusFrame`, 16), so Save no longer looks "saved" after a click. |

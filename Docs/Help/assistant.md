@@ -56,6 +56,16 @@ Before each request, the Assistant checks that Ollama is running and has the mod
 
 A request larger than the context size is refused rather than cut short, and the Assistant says so.  Raise **Context size**, or type /clear to start a new conversation.
 
+### What a model on this computer is sent
+
+A model on this computer, through Ollama or LM Studio, is sent less than a model from Anthropic or OpenAI, so it answers sooner and has room for the conversation:
+
+- **Tools in groups.**  It gets the tools for the workspace you are on: on People, those for people, families and research; on Places, those for places; and so on.  The tools for finding people and listing what the tree holds (its places, sources, media and statistics) are always there.  When a request needs others, such as the tools for changing sources, it asks for them and keeps them for the rest of the conversation; the pane shows this as **Use more tools**.  Each MCP server's tools are a group of their own.  The line under the pane's header says the tools are sent in groups.  A small model doesn't always ask for the tools it needs: if an answer misses the point, name what you want ("use the family history tools") or ask from the workspace it belongs to.
+- **Shorter instructions**, with the same rules.
+- **The conversation fitted to the context** (Ollama only).  When the conversation no longer fits, the oldest tool results are left out of what is sent, then the oldest exchanges, and the pane says so the first time.  The conversation itself is kept, and Copy copies all of it.  A very large tool result in the current request is shortened, and the model is told to ask for less at a time.
+
+If the model gives no answer at all, the pane says so.  With a model on this computer the Assistant first asks it once more, reminding it which tools it can ask for.
+
 **Test the model** with Ollama also shows the context size and Ollama's own figures: tokens read and written, and how long it took to load the model, read the request and write the answer.
 
 ### What goes to the service
