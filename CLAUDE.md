@@ -25,7 +25,8 @@ computer.
 │  │                              TreeImport, TreeTools, Living, Timeline, SampleTree
 │  ├─ Ai/                         the Assistant: SecretStore; Mcp/ (client, hub, server config,
 │  │                              browser sign-in, registry, setup plans, the genealogy list);
-│  │                              Assistant/ (session, chat items, providers, tool budget,
+│  │                              Assistant/ (session, chat items, providers, Ollama's provider
+│  │                              and server, tool budget, tool groups, context fit,
 │  │                              conversation store, settings, downloads); Research/ (the
 │  │                              listed archive APIs, fetch_url's requests, the resources list);
 │  │                              Tools/AssistantTools (five partial files: core and privacy,
@@ -209,7 +210,18 @@ new version's name, edit it, and update the pointers in this file.
   sentence for the approval card.  Look everything up and check it before calling `Change(...)`, so
   a refused call leaves no empty undo step and the request's Revert count stays right.  Every person
   in a result goes through `Ref`, `Vitals` or a `Withheld` check, so living and Private people are
-  never given to the model beyond what Options › Assistant allows (TDD 22.4).
+  never given to the model beyond what Options › Assistant allows (TDD 22.4).  Give it a group in
+  `ToolGroups.ByTool`: a tool left out is sent to a model on this computer with every request,
+  which costs it context (TDD 22.2).
+- **A model on this computer is sent less.**  For any local address the session sends the tools in
+  groups (`ToolGroups`, `use_tools`) with a shorter system prompt (`ShortPrompt`); a rule added to
+  `SystemPrompt` may belong in `ShortPrompt` too.  Hosted models get everything.  Ollama
+  (port 11434) is called on its own `/api/chat` (`OllamaChatProvider`) with the context size from
+  Options, 16,384 by default, and the conversation is fitted to it (`ContextFit`).  Ollama drops a
+  call to a tool that wasn't in the request and the reply comes back empty, so the session asks
+  once more with a note naming each group's tools (`EmptyReplyNote`).  Mycelia's full prompt and
+  68 tools came to 12,671 tokens with qwen3:8b, against Ollama's own 4,096 on an 8 GB card
+  (TDD 22.2).
 - **Browser sign-in tokens live in working copies too.**  The hub and the Options window hold
   clones of each `McpServerConfig`; a renewed token raises `McpOAuth.TokensChanged`, and
   `MainWindow` copies it into the saved server (by id and address) and saves.  Never save a clone
