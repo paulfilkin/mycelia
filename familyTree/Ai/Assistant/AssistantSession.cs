@@ -61,6 +61,10 @@ public sealed class AssistantSession
     }
 
     public McpHub Hub { get; }
+
+    /// <summary>Ollama's server when Mycelia starts it (Options › AI model, or a request with AutoStartOllama); stopped when Mycelia closes.</summary>
+    public OllamaServer Ollama { get; } = new();
+
     public ObservableCollection<ChatItem> Items { get; } = new();
     public bool IsBusy { get; private set; }
     public string BusyText { get; private set; } = string.Empty;
@@ -185,11 +189,18 @@ public sealed class AssistantSession
         var cancel = _cancel.Token;
         var options = Settings;
         var lastReply = "";
-        var provider = ChatProviders.Create(new ChatProviderOptions(options.Provider, options.Model,
-            options.GetApiKey(options.Provider), options.Endpoint, Math.Clamp(options.MaxTokens, 256, 64000)));
+        var providerOptions = options.ProviderOptions(Math.Clamp(options.MaxTokens, 256, 64000));
+        var provider = ChatProviders.Create(providerOptions);
 
         try
         {
+            if (await PrepareAsync(providerOptions, cancel) is { } problem)
+            {
+                // The request wasn't sent: take it out of what the model sees, so asking again works.
+                _turns.RemoveAt(_turns.Count - 1);
+                Items.Add(new NoticeMessage(problem, true));
+                return;
+            }
             for (int step = 0; step < Math.Clamp(options.MaxSteps, 1, 100); step++)
             {
                 // Not every tool may fit in one request (ToolBudget): the rest are reached through find_tools.
@@ -203,11 +214,34 @@ public sealed class AssistantSession
                 }
                 _sentToolNames = sent.Select(t => t.Name).ToHashSet();
                 SetBusyText(step == 0 ? "Thinking…" : "Thinking about the results…");
+                // A streamed reply (Ollama) is shown as it comes, drawn again at most every StreamRedraw milliseconds:
+                // the pane draws the whole Markdown each time.
+                AssistantMessage? live = null;
+                var streamed = new StringBuilder();
+                var drawn = System.Diagnostics.Stopwatch.StartNew();
+                void OnText(string piece)
+                {
+                    streamed.Append(piece);
+                    string shown = streamed.ToString().Trim();
+                    if (shown.Length == 0)
+                        return;
+                    if (live is null)
+                    {
+                        live = new AssistantMessage(shown);
+                        Items.Add(live);
+                        drawn.Restart();
+                    }
+                    else if (drawn.ElapsedMilliseconds >= StreamRedraw)
+                    {
+                        live.Text = shown;
+                        drawn.Restart();
+                    }
+                }
                 ChatReply reply;
                 try
                 {
                     reply = await provider.CompleteAsync(SystemPrompt(sent.Count < all.Count ? ToolBudget.PromptNote(sent.Count, all.Count - 1, limit!.Value) : null),
-                        _turns, sent.Select(t => t.ToSpec()).ToList(), cancel);
+                        _turns, sent.Select(t => t.ToSpec()).ToList(), cancel, OnText);
                 }
                 catch (ChatException ex) when (ToolBudget.LimitFromError(ex.Message) is int stated && stated < sent.Count && _toolLimit != stated)
                 {
@@ -222,8 +256,15 @@ public sealed class AssistantSession
                     _turns.Add(new AssistantTurn(reply.Text, reply.ToolCalls));
                 if (reply.Text.Trim().Length > 0)
                 {
-                    Items.Add(new AssistantMessage(reply.Text.Trim()));
+                    if (live is not null)
+                        live.Text = reply.Text.Trim();
+                    else
+                        Items.Add(new AssistantMessage(reply.Text.Trim()));
                     lastReply = reply.Text;
+                }
+                else if (live is not null)
+                {
+                    Items.Remove(live);
                 }
                 if (reply.ToolCalls.Count == 0)
                 {
@@ -255,7 +296,10 @@ public sealed class AssistantSession
             Items.Add(new NoticeMessage(ex.Message, true));
             // The whole conversation goes with every request, and it is kept between sessions, so it can outgrow the model.
             if (LooksTooLong(ex.Message))
-                Items.Add(new NoticeMessage("The conversation may now be too long for the model. Type /clear to start a new one.", false));
+                // Ollama refuses a request larger than the context size set in Options, which can be raised.
+                Items.Add(new NoticeMessage(OllamaServer.IsOllamaEndpoint(providerOptions.Provider, providerOptions.Endpoint)
+                    ? $"The request is larger than the context size, {providerOptions.ContextSize:N0} tokens. Raise it in Options › AI model, or type /clear to start a new conversation."
+                    : "The conversation may now be too long for the model. Type /clear to start a new one.", false));
         }
         finally
         {
@@ -476,8 +520,32 @@ public sealed class AssistantSession
 
     /// <summary>Whether a service's error says the request was too long for the model.</summary>
     private static bool LooksTooLong(string message) =>
-        new[] { "context length", "context_length", "context window", "too long", "too many tokens", "maximum context" }
+        new[] { "context length", "context_length", "context window", "context size", "too long", "too many tokens", "maximum context" }
             .Any(p => message.Contains(p, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>How often a streamed reply is drawn again, in milliseconds.</summary>
+    private const int StreamRedraw = 150;
+
+    /// <summary>
+    /// Before a request to a service on this computer: starts Ollama when the person asked for that, or says it isn't
+    /// running (rather than "couldn't be reached"), and names the installed models when the chosen one isn't among them
+    /// (rather than the service's bare "not found").  Returns why the request can't go ahead, or null.
+    /// </summary>
+    private async Task<string?> PrepareAsync(ChatProviderOptions options, CancellationToken cancel)
+    {
+        if (!ChatProviders.IsLocal(options.Provider, options.Endpoint))
+            return null;
+        if (OllamaServer.IsOllamaEndpoint(options.Provider, options.Endpoint) && !await OllamaServer.IsRunningAsync(options.Endpoint, cancel))
+        {
+            if (!Settings.AutoStartOllama)
+                return "Ollama isn't running.  Start it in Options › AI model, where it can also be started whenever a request needs it.";
+            SetBusyText("Starting Ollama…");
+            if (await Ollama.StartAsync(options.Endpoint, cancel) is { } problem)
+                return "Ollama didn't start.  " + problem;
+            SetBusyText("Thinking…");
+        }
+        return ChatProviders.MissingModel(options.Model, await ChatProviders.InstalledModelsAsync(options.Provider, options.Endpoint, cancel));
+    }
 
     // ---- One conversation per tree (ConversationStore) ------------------------------------------
 

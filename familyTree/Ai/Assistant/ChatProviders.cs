@@ -30,7 +30,23 @@ public sealed record AssistantTurn(string Text, IReadOnlyList<ToolCall> ToolCall
 
 public sealed record ToolResultsTurn(IReadOnlyList<ToolResult> Results) : ChatTurn;
 
-public sealed record ChatReply(string Text, IReadOnlyList<ToolCall> ToolCalls, string StopReason, int InputTokens, int OutputTokens);
+public sealed record ChatReply(string Text, IReadOnlyList<ToolCall> ToolCalls, string StopReason, int InputTokens, int OutputTokens)
+{
+    /// <summary>Token counts and times, where the service gives them (Ollama).</summary>
+    public ReplyStats? Stats { get; init; }
+}
+
+/// <summary>
+/// What one request cost: the tokens read and written, Ollama's own times for loading the model, reading the prompt and
+/// writing the reply, and the time to the first text or tool call and in all, measured by Mycelia.
+/// </summary>
+public sealed record ReplyStats(int PromptTokens, int ReplyTokens, TimeSpan Loading, TimeSpan Reading, TimeSpan Writing,
+    TimeSpan FirstOutput, TimeSpan Total)
+{
+    public override string ToString() => string.Create(System.Globalization.CultureInfo.InvariantCulture,
+        $"prompt {PromptTokens:N0} tokens in {Reading.TotalSeconds:0.0} s, reply {ReplyTokens:N0} tokens in {Writing.TotalSeconds:0.0} s, "
+        + $"model loaded in {Loading.TotalSeconds:0.0} s, first output after {FirstOutput.TotalSeconds:0.0} s, {Total.TotalSeconds:0.0} s in all");
+}
 
 public sealed class ChatException : Exception
 {
@@ -42,10 +58,18 @@ public sealed class ChatException : Exception
 public interface IChatProvider
 {
     string DisplayName { get; }
-    Task<ChatReply> CompleteAsync(string system, IReadOnlyList<ChatTurn> turns, IReadOnlyList<ToolSpec> tools, CancellationToken cancel);
+
+    /// <summary>
+    /// Sends the conversation and returns the reply.  A service that streams (Ollama) calls onText with each piece of text
+    /// as it comes; the reply still holds the whole text.
+    /// </summary>
+    Task<ChatReply> CompleteAsync(string system, IReadOnlyList<ChatTurn> turns, IReadOnlyList<ToolSpec> tools, CancellationToken cancel,
+        Action<string>? onText = null);
 }
 
-public sealed record ChatProviderOptions(ModelProvider Provider, string Model, string ApiKey, string Endpoint, int MaxTokens);
+/// <summary>What a request needs.  ContextSize and Think are for Ollama only.</summary>
+public sealed record ChatProviderOptions(ModelProvider Provider, string Model, string ApiKey, string Endpoint, int MaxTokens,
+    int ContextSize = AssistantSettings.DefaultOllamaContext, bool Think = false);
 
 /// <summary>The AI services the Assistant talks to.  Ported from multifariousStudio's Core/Assistant/ChatProviders.cs.</summary>
 public static class ChatProviders
@@ -82,10 +106,73 @@ public static class ChatProviders
     public static IChatProvider Create(ChatProviderOptions options) => options.Provider switch
     {
         ModelProvider.Anthropic => new AnthropicChatProvider(options),
+        // Ollama on this computer: its own API, which sets the context size and thinking, and streams.
+        _ when OllamaServer.IsOllamaEndpoint(options.Provider, options.Endpoint) => new OllamaChatProvider(options),
         _ => new OpenAiChatProvider(options)
     };
 
     internal static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(5) };
+
+    /// <summary>
+    /// The models a service on this computer has (Ollama, LM Studio: GET {base}/models), sorted; empty when it couldn't
+    /// be reached within a few seconds or isn't on this computer.
+    /// </summary>
+    public static async Task<IReadOnlyList<string>> InstalledModelsAsync(ModelProvider provider, string endpoint, CancellationToken cancel = default)
+    {
+        if (!IsLocal(provider, endpoint))
+            return [];
+        string baseUrl = endpoint.Trim().TrimEnd('/');
+        if (baseUrl.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+            baseUrl = baseUrl[..^"/chat/completions".Length];
+        if (!Uri.TryCreate(baseUrl + "/models", UriKind.Absolute, out var url))
+            return [];
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        try
+        {
+            using var response = await Http.GetAsync(url, timeout.Token);
+            return response.IsSuccessStatusCode ? ParseModels(await response.Content.ReadAsStringAsync(timeout.Token)) : [];
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>The ids in an OpenAI-style model list ({"data":[{"id":"qwen3:8b"}]}), sorted.</summary>
+    public static IReadOnlyList<string> ParseModels(string json)
+    {
+        try
+        {
+            return (JsonNode.Parse(json)?["data"] as JsonArray ?? new JsonArray())
+                .Select(m => (m?["id"] as JsonValue)?.ToString() ?? string.Empty)
+                .Where(id => id.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Why a request can't go to the model on this computer, or null when it has it or the list is unknown.  Ollama takes
+    /// a name without a tag as name:latest.
+    /// </summary>
+    public static string? MissingModel(string model, IReadOnlyList<string> installed)
+    {
+        if (installed.Count == 0)
+            return null;
+        if (model.Length > 0 && installed.Any(m => m.Equals(model, StringComparison.OrdinalIgnoreCase)
+                || (!model.Contains(':') && m.Equals(model + ":latest", StringComparison.OrdinalIgnoreCase))))
+            return null;
+        string name = model.Length > 0 ? $"The model {model} isn't on this computer." : "No model is chosen.";
+        return installed.Count == 1
+            ? $"{name}  The service has {installed[0]}: choose it in Options › AI model."
+            : $"{name}  The service has {string.Join(", ", installed)}: choose one in Options › AI model.";
+    }
 
     internal static async Task<JsonObject> PostAsync(HttpRequestMessage request, string providerName, CancellationToken cancel)
     {
@@ -109,15 +196,23 @@ public static class ChatProviders
             try { json = JsonNode.Parse(body) as JsonObject; }
             catch (JsonException) { }
             if (!response.IsSuccessStatusCode)
-            {
-                string message = json?["error"]?["message"]?.GetValue<string>()
-                    ?? json?["error"]?.ToString()
-                    ?? (body.Length > 300 ? body[..300] + "…" : body);
-                string hint = (int)response.StatusCode == 401 ? "  Check the API key in Options › AI model." : string.Empty;
-                throw new ChatException($"{providerName} answered {(int)response.StatusCode}: {message}{hint}");
-            }
+                throw Error(providerName, (int)response.StatusCode, body);
             return json ?? throw new ChatException($"{providerName} sent an answer that isn't JSON.");
         }
+    }
+
+    /// <summary>A service's refusal, with the message from its answer ({"error":{"message":...}} or {"error":"..."}).</summary>
+    internal static ChatException Error(string providerName, int status, string body)
+    {
+        JsonObject? json = null;
+        try { json = JsonNode.Parse(body) as JsonObject; }
+        catch (JsonException) { }
+        string message = ((json?["error"] as JsonObject)?["message"] as JsonValue)?.ToString()
+            ?? (json?["error"] as JsonValue)?.ToString()
+            ?? json?["error"]?.ToString()
+            ?? (body.Length > 300 ? body[..300] + "…" : body);
+        string hint = status == 401 ? "  Check the API key in Options › AI model." : string.Empty;
+        return new ChatException($"{providerName} answered {status}: {message}{hint}");
     }
 }
 
@@ -130,7 +225,8 @@ public sealed class AnthropicChatProvider : IChatProvider
 
     public string DisplayName => "Anthropic " + _options.Model;
 
-    public async Task<ChatReply> CompleteAsync(string system, IReadOnlyList<ChatTurn> turns, IReadOnlyList<ToolSpec> tools, CancellationToken cancel)
+    public async Task<ChatReply> CompleteAsync(string system, IReadOnlyList<ChatTurn> turns, IReadOnlyList<ToolSpec> tools, CancellationToken cancel,
+        Action<string>? onText = null)
     {
         var messages = new JsonArray();
         void Add(string role, JsonArray content)
@@ -239,7 +335,8 @@ public sealed class OpenAiChatProvider : IChatProvider
 
     public string DisplayName => (_options.Provider == ModelProvider.OpenAI ? "OpenAI " : string.Empty) + _options.Model;
 
-    public async Task<ChatReply> CompleteAsync(string system, IReadOnlyList<ChatTurn> turns, IReadOnlyList<ToolSpec> tools, CancellationToken cancel)
+    public async Task<ChatReply> CompleteAsync(string system, IReadOnlyList<ChatTurn> turns, IReadOnlyList<ToolSpec> tools, CancellationToken cancel,
+        Action<string>? onText = null)
     {
         var messages = new JsonArray { new JsonObject { ["role"] = "system", ["content"] = system } };
         foreach (var turn in turns)

@@ -36,6 +36,22 @@ public sealed class AssistantSettings
     /// <summary>The most model turns (each may call tools) for one request.</summary>
     public int MaxSteps { get; set; } = 20;
 
+    /// <summary>
+    /// The context Ollama gives the model, in tokens, sent with each request (TDD 22.2).  Without it Ollama picks one from
+    /// the video memory: 4,096 for qwen3:8b on an 8 GB card, less than Mycelia's prompt and tools.
+    /// </summary>
+    public const int DefaultOllamaContext = 16384;
+    public const int MinOllamaContext = 2048;
+    public const int MaxOllamaContext = 131072;
+
+    public int OllamaContext { get; set; } = DefaultOllamaContext;
+
+    /// <summary>Let an Ollama model that can think (qwen3) think before it answers.  Off by default: slower, and it fills the context.</summary>
+    public bool OllamaThink { get; set; }
+
+    /// <summary>Start Ollama's server when a request needs it (an Ollama address only).  Off by default.</summary>
+    public bool AutoStartOllama { get; set; }
+
     /// <summary>Extra instructions added to every conversation.</summary>
     public string Instructions { get; set; } = string.Empty;
 
@@ -97,6 +113,10 @@ public sealed class AssistantSettings
         else
             ApiKeys[provider.ToString()] = SecretStore.Protect(key.Trim());
     }
+
+    /// <summary>What a request to the chosen service needs, with this longest answer.</summary>
+    public ChatProviderOptions ProviderOptions(int maxTokens) => new(Provider, Model, GetApiKey(Provider), Endpoint, maxTokens,
+        Math.Clamp(OllamaContext, MinOllamaContext, MaxOllamaContext), OllamaThink);
 
     public bool HasKey => !ChatProviders.NeedsKey(Provider, Endpoint) || GetApiKey(Provider).Length > 0;
 

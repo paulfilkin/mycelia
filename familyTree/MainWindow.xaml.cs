@@ -414,7 +414,8 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
         var dialog = new OptionsDialog(_settings, _hub, _tools.All, page);
         dialog.CheckForUpdatesNow = channel => Updates.UpdateService.CheckManuallyAsync(dialog, this, channel);
         dialog.ConnectedPrograms = () => _server?.Clients ?? [];
-        var before = (_settings.McpServer.Enabled, _settings.McpServer.Port, _settings.McpServer.Token);
+        dialog.Ollama = _assistant.Ollama;
+        var before =(_settings.McpServer.Enabled, _settings.McpServer.Port, _settings.McpServer.Token);
         if (dialog.ShowDialog() != true) return;
         if ((_settings.McpServer.Enabled, _settings.McpServer.Port, _settings.McpServer.Token) != before) StartServer();
         foreach (var p in _state.Doc.Data.People) p.RaiseAll();
@@ -901,6 +902,8 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
         if (e.Cancel) return;
         // Stop a running request, keep the conversation, and close the MCP servers' programs (two seconds each at most).
         _assistant.Shutdown();
+        // An Ollama that Mycelia started stops with it; one started any other way is left running.
+        _assistant.Ollama.Dispose();
         if (_server is { } server) Task.Run(() => server.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(2));
         try { Task.Run(() => _hub.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(5)); }
         catch (AggregateException) { /* a server that won't close is stopped with the process */ }

@@ -27,7 +27,7 @@ The Assistant needs an AI model from a service.  Set it in Options > AI model: M
 | Setting | What it does |
 | --- | --- |
 | **Provider** | **Anthropic (Claude)**, **OpenAI**, or **OpenAI-compatible (Ollama, LM Studio, Gemini, Mistral...)** for any service that works like OpenAI's, including programs on your own computer. |
-| **Model** | Pick one of the suggestions or type the model name the service uses.  The default is claude-sonnet-5-5. |
+| **Model** | Pick one of the suggestions or type the model name the service uses.  The default is claude-sonnet-5-5.  For a service on this computer, such as Ollama or LM Studio, the list shows the models it has. |
 | **Address** | Leave empty for Anthropic's or OpenAI's own service.  For an OpenAI-compatible service, its base address, ending in /v1 or /openai.  The list suggests `http://localhost:11434/v1` (Ollama), `http://localhost:1234/v1` (LM Studio) and the addresses for Gemini and Mistral. |
 | **API key** | The key from the service's own website.  A note under the box says whether one is needed. |
 | **Longest answer** | The most tokens in one answer, 256 to 64000 (16000 by default). |
@@ -39,6 +39,24 @@ The Assistant needs an AI model from a service.  Set it in Options > AI model: M
 Each provider keeps its own key, so you can switch between them without typing a key again.  Keys are kept in Mycelia's settings file, encrypted for your Windows account, and are never shown to the AI model.
 
 A service on this computer (an address with `localhost` or `127.0.0.1`, such as Ollama or LM Studio) needs no key.  The pane then shows "Local AI service" as the provider.
+
+### Ollama on this computer
+
+With Ollama's address, `http://localhost:11434/v1`, three more settings appear under **Longest answer**:
+
+| Setting | What it does |
+| --- | --- |
+| **Ollama** | Whether Ollama is running, with **Start** and **Stop**.  Mycelia runs Ollama with no window and stops it when Mycelia closes.  An Ollama you started yourself, from its own app or a terminal, is never stopped.  Tick **Start Ollama when a request needs it** to have the Assistant start it when you ask something. |
+| **Context size** | How many tokens the model reads at once: Mycelia's instructions, its tools and the conversation.  2048 to 131072, 16384 by default.  The instructions and tools alone take about 12,700 tokens, so a smaller context leaves no room for the conversation.  A larger one needs more memory: with an 8 GB graphics card, qwen3:8b fits at 16384 but not at 24576, where part of it runs on the processor and every answer is slower. |
+| **Thinking** | Lets a model that can think, such as qwen3, work through a request before it answers.  Off by default: thinking is slower and takes up the context. |
+
+The answer appears in the pane as it is written.  The first request after Ollama starts takes longer, while the model loads and reads Mycelia's instructions and tools; later requests in the conversation start much sooner.
+
+Before each request, the Assistant checks that Ollama is running and has the model you chose.  If it isn't running, the Assistant says so (or starts it, if you ticked that).  If the model isn't there, it names the ones Ollama has.
+
+A request larger than the context size is refused rather than cut short, and the Assistant says so.  Raise **Context size**, or type /clear to start a new conversation.
+
+**Test the model** with Ollama also shows the context size and Ollama's own figures: tokens read and written, and how long it took to load the model, read the request and write the answer.
 
 ### What goes to the service
 
