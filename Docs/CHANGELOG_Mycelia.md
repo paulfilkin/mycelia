@@ -26,6 +26,16 @@ The Assistant works properly with Ollama on your own computer.
   says so and names the models it has, instead of "couldn't be reached" or "not found".
 - **Test the model shows Ollama's figures:** the context size, the tokens read and written, and
   how long the model took to load, read the request and answer.
+- **A model on your computer is sent less.**  It gets the tools for the workspace you are on (on
+  People, those for people, families and research) and the tools for finding people and listing
+  what the tree holds, and asks for others when it needs them.  Its instructions are shorter, with
+  the same rules.  With qwen3:8b the first request went from about 12,700 tokens to about 7,500.
+  Anthropic and OpenAI models are sent everything as before.
+- **Long conversations keep working with Ollama.**  When a conversation no longer fits the context
+  size, the oldest tool results are left out of what is sent, then the oldest exchanges, and the
+  pane says so the first time.  The conversation itself is kept.
+- **An empty answer is no longer silent.**  When the model gives no answer, the pane says so.  A
+  model on your computer is first asked once more, reminded which tools it can ask for.
 
 ## 0.4.1 - 15 November 2026
 
