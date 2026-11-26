@@ -10,7 +10,7 @@ MCP servers do that for a family tree.  MCP also stands for "Mycelia Connects Pe
 
 ![The People workspace with a research log and the Assistant](Docs/Images/people.png)
 
-> **Status:** version 0.4.1, in development.  Ready-built versions for testing are on the
+> **Status:** version 0.5.0, in development.  Ready-built versions for testing are on the
 > [Releases page](https://github.com/paulfilkin/mycelia/releases) (see [Download](#download)).
 > The tree file format may still change.
 
