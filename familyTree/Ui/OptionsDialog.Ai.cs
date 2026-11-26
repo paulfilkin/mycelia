@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Mycelia.Ai;
 using Mycelia.Ai.Assistant;
 using Mycelia.Ai.Mcp;
@@ -27,6 +28,11 @@ public sealed partial class OptionsDialog
     private TextBox _maxTokens = null!;
     private TextBlock _modelTestResult = null!;
     private readonly Dictionary<ModelProvider, string> _keys = [];
+
+    // AI model: the models the service lists (TDD 22.7), read again a moment after the address or key stops changing
+    private TextBlock _modelNote = null!;
+    private ModelList? _listed;
+    private DispatcherTimer? _modelTimer;
 
     // AI model: Ollama on this computer (TDD 22.2, 22.7)
     private StackPanel _ollamaPanel = null!;
@@ -198,24 +204,36 @@ public sealed partial class OptionsDialog
         _maxTokens.Width = 100;
         _maxTokens.HorizontalAlignment = HorizontalAlignment.Left;
 
+        _modelNote = Hint(string.Empty);
+        _modelNote.Visibility = Visibility.Collapsed;
         var current = a.Provider;
-        _model.ItemsSource = ChatProviders.SuggestedModels(current);
         _provider.SelectionChanged += (_, _) =>
         {
             _keys[current] = _apiKey.Password;
             current = SelectedProvider;
-            _model.ItemsSource = ChatProviders.SuggestedModels(current);
-            if (!ChatProviders.SuggestedModels(current).Contains(_model.Text))
-                _model.Text = ChatProviders.DefaultModel(current);
+            // The new service's list fills the box with its first model when it arrives.
+            _model.Text = string.Empty;
+            _listed = null;
+            SetModelList([]);
             _apiKey.Password = _keys[current];
             UpdateKeyNote();
             AddressChanged();
         };
-        _apiKey.PasswordChanged += (_, _) => { _keys[current] = _apiKey.Password; UpdateKeyNote(); };
+        _apiKey.PasswordChanged += (_, _) => { _keys[current] = _apiKey.Password; UpdateKeyNote(); ScheduleModelRefresh(); };
         _endpoint.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((_, _) => { UpdateKeyNote(); AddressChanged(); }));
+        _model.AddHandler(System.Windows.Controls.Primitives.TextBoxBase.TextChangedEvent, new TextChangedEventHandler((_, _) => UpdateModelNote()));
+        // Ollama is given to the window after it is made, so the services are read once it has loaded.
+        Loaded += (_, _) =>
+        {
+            _ = RefreshOllamaAsync();
+            _ = RefreshModelsAsync();
+        };
 
         panel.Children.Add(Row("Provider", _provider));
-        panel.Children.Add(Row("Model", _model, "Pick one or type the model name the service uses.  For a service on this computer, the list shows the models it has."));
+        var modelPanel = new StackPanel();
+        modelPanel.Children.Add(_model);
+        modelPanel.Children.Add(_modelNote);
+        panel.Children.Add(Row("Model", modelPanel, "The models the service lists for this address and key.  You can also type a model's name."));
         panel.Children.Add(Row("Address", _endpoint, "Leave empty for Anthropic's or OpenAI's own address.  For an OpenAI-compatible service, its base address (ending in /v1 or /openai)."));
         var keyPanel = new StackPanel();
         keyPanel.Children.Add(_apiKey);
@@ -267,14 +285,33 @@ public sealed partial class OptionsDialog
 
     private bool IsOllama => OllamaServer.IsOllamaEndpoint(SelectedProvider, _endpoint.Text);
 
-    /// <summary>The provider or address changed: show Ollama's settings for an Ollama address, and read a local service's models.</summary>
+    /// <summary>The provider or address changed: show Ollama's settings for an Ollama address, and read the service's models.</summary>
     private void AddressChanged()
     {
         if (_ollamaPanel is null)
             return;
         _ollamaPanel.Visibility = IsOllama ? Visibility.Visible : Visibility.Collapsed;
         _ = RefreshOllamaAsync();
-        _ = RefreshModelsAsync();
+        ScheduleModelRefresh();
+    }
+
+    /// <summary>Reads the models a moment after the last change, so typing an address or key doesn't ask at every keystroke.</summary>
+    private void ScheduleModelRefresh()
+    {
+        // Before the window has loaded (and for a check picture) nothing is read.
+        if (Ollama is null)
+            return;
+        if (_modelTimer is null)
+        {
+            _modelTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+            _modelTimer.Tick += (_, _) =>
+            {
+                _modelTimer.Stop();
+                _ = RefreshModelsAsync();
+            };
+        }
+        _modelTimer.Stop();
+        _modelTimer.Start();
     }
 
     /// <summary>Whether Ollama is running, for the line above Start and Stop.</summary>
@@ -313,20 +350,45 @@ public sealed partial class OptionsDialog
             _ollamaStatus.Text = "Ollama didn't start.  " + problem;
     }
 
-    /// <summary>A service on this computer lists the models it has; any other keeps the suggestions.</summary>
+    /// <summary>
+    /// The Model list holds only what the service lists; when it lists nothing, the note under the box says why.  An empty
+    /// box takes the first model listed.
+    /// </summary>
     private async Task RefreshModelsAsync()
     {
         int version = ++_modelListVersion;
-        var provider = SelectedProvider;
-        if (Ollama is null || !ChatProviders.IsLocal(provider, _endpoint.Text))
-        {
-            SetModelList(ChatProviders.SuggestedModels(provider));
+        _modelTimer?.Stop();
+        if (Ollama is null)
             return;
-        }
-        var installed = await ChatProviders.InstalledModelsAsync(provider, _endpoint.Text);
-        // A later change of provider or address has its own list on the way.
-        if (version == _modelListVersion)
-            SetModelList(installed.Count > 0 ? installed : ChatProviders.SuggestedModels(provider));
+        ShowModelNote("Reading the service's models…");
+        var list = await ChatProviders.ListModelsAsync(SelectedProvider, _endpoint.Text, _apiKey.Password);
+        // A later change of provider, address or key has its own list on the way.
+        if (version != _modelListVersion)
+            return;
+        _listed = list;
+        SetModelList(list.Models);
+        if (_model.Text.Trim().Length == 0 && list.Models.Count > 0)
+            _model.Text = list.Models[0];
+        UpdateModelNote();
+    }
+
+    /// <summary>Why the list is empty, or that the service doesn't list the model in the box.</summary>
+    private void UpdateModelNote()
+    {
+        if (_listed is null)
+            return;
+        string model = _model.Text.Trim();
+        // Ollama takes a name without a tag as name:latest.
+        bool listed = _listed.Models.Any(m => m.Equals(model, StringComparison.OrdinalIgnoreCase)
+            || (!model.Contains(':') && m.Equals(model + ":latest", StringComparison.OrdinalIgnoreCase)));
+        ShowModelNote(_listed.Problem ?? (model.Length > 0 && !listed ? $"The service doesn't list {model}." : string.Empty));
+    }
+
+    /// <summary>The note under the Model box, taking no room when it has nothing to say.</summary>
+    private void ShowModelNote(string text)
+    {
+        _modelNote.Text = text;
+        _modelNote.Visibility = text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Sets the Model list without changing the name typed in the box.</summary>

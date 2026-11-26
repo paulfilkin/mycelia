@@ -94,6 +94,9 @@ public interface IChatProvider
 public sealed record ChatProviderOptions(ModelProvider Provider, string Model, string ApiKey, string Endpoint, int MaxTokens,
     int ContextSize = AssistantSettings.DefaultOllamaContext, bool Think = false);
 
+/// <summary>The models a service lists, or none and why (ChatProviders.ListModelsAsync).</summary>
+public sealed record ModelList(IReadOnlyList<string> Models, string? Problem);
+
 /// <summary>The AI services the Assistant talks to.  Ported from multifariousStudio's Core/Assistant/ChatProviders.cs.</summary>
 public static class ChatProviders
 {
@@ -104,15 +107,16 @@ public static class ChatProviders
     public const string ToolChangesBeta = "mid-conversation-tool-changes-2026-07-01";
     public const string OpenAiEndpoint = "https://api.openai.com/v1";
 
-    /// <summary>Suggested model names per provider (any name can be typed).</summary>
-    public static IReadOnlyList<string> SuggestedModels(ModelProvider provider) => provider switch
+    /// <summary>
+    /// The model saved when none is chosen: a name for Anthropic and OpenAI, none for another service.  The Model list in
+    /// Options shows only what the service lists (ListModelsAsync).
+    /// </summary>
+    public static string DefaultModel(ModelProvider provider) => provider switch
     {
-        ModelProvider.Anthropic => new[] { "claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5-2" },
-        ModelProvider.OpenAI => new[] { "gpt-5", "gpt-5-mini", "gpt-4.1", "gpt-4o" },
-        _ => new[] { "llama3.1", "qwen2.5", "gemini-2.5-pro", "gemini-2.5-flash", "mistral-large-latest" }
+        ModelProvider.Anthropic => "claude-sonnet-5-5",
+        ModelProvider.OpenAI => "gpt-5",
+        _ => string.Empty
     };
-
-    public static string DefaultModel(ModelProvider provider) => SuggestedModels(provider)[0];
 
     /// <summary>Base addresses offered for OpenAI-compatible services.</summary>
     public static IReadOnlyList<string> SuggestedEndpoints { get; } = new[]
@@ -143,39 +147,97 @@ public static class ChatProviders
     /// The models a service on this computer has (Ollama, LM Studio: GET {base}/models), sorted; empty when it couldn't
     /// be reached within a few seconds or isn't on this computer.
     /// </summary>
-    public static async Task<IReadOnlyList<string>> InstalledModelsAsync(ModelProvider provider, string endpoint, CancellationToken cancel = default)
+    public static async Task<IReadOnlyList<string>> InstalledModelsAsync(ModelProvider provider, string endpoint, CancellationToken cancel = default) =>
+        IsLocal(provider, endpoint) ? (await ListModelsAsync(provider, endpoint, string.Empty, cancel)).Models : [];
+
+    /// <summary>
+    /// The models the service lists for this key, for the Model list in Options (TDD 22.7): Anthropic's GET /v1/models
+    /// newest first, OpenAI's GET /models newest first without the models that don't chat, and any other service's
+    /// GET {base}/models sorted by name.  Empty, with the reason, when the list can't be read within a few seconds.
+    /// </summary>
+    public static async Task<ModelList> ListModelsAsync(ModelProvider provider, string endpoint, string apiKey, CancellationToken cancel = default)
     {
-        if (!IsLocal(provider, endpoint))
-            return [];
-        string baseUrl = endpoint.Trim().TrimEnd('/');
-        if (baseUrl.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
-            baseUrl = baseUrl[..^"/chat/completions".Length];
-        if (!Uri.TryCreate(baseUrl + "/models", UriKind.Absolute, out var url))
-            return [];
+        apiKey = apiKey.Trim();
+        if (NeedsKey(provider, endpoint) && apiKey.Length == 0)
+            return new ModelList([], "Enter the API key to list this service's models.");
+        if (ModelsUrl(provider, endpoint) is not { } url)
+            return new ModelList([], "The address isn't a web address.");
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        // Without validation, so a key pasted with a stray character gives the service's refusal rather than an exception.
+        if (provider == ModelProvider.Anthropic)
+        {
+            request.Headers.TryAddWithoutValidation("x-api-key", apiKey);
+            request.Headers.TryAddWithoutValidation("anthropic-version", AnthropicVersion);
+        }
+        else if (apiKey.Length > 0)
+            request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + apiKey);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
         timeout.CancelAfter(TimeSpan.FromSeconds(8));
         try
         {
-            using var response = await Http.GetAsync(url, timeout.Token);
-            return response.IsSuccessStatusCode ? ParseModels(await response.Content.ReadAsStringAsync(timeout.Token)) : [];
+            using var response = await Http.SendAsync(request, timeout.Token);
+            int status = (int)response.StatusCode;
+            if (status is 401 or 403)
+                return new ModelList([], "The service refused the API key, so it lists no models.");
+            if (!response.IsSuccessStatusCode)
+                return new ModelList([], $"The service answered {status} {response.ReasonPhrase} when asked for its models.");
+            var models = ParseModels(await response.Content.ReadAsStringAsync(timeout.Token), provider);
+            return new ModelList(models, models.Count == 0 ? "The service lists no models." : null);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !cancel.IsCancellationRequested)
         {
-            return [];
+            return new ModelList([], IsLocal(provider, endpoint)
+                ? "The service on this computer isn't answering, so there are no models to list."
+                : "The service couldn't be reached, so there are no models to list.");
         }
     }
 
-    /// <summary>The ids in an OpenAI-style model list ({"data":[{"id":"qwen3:8b"}]}), sorted.</summary>
-    public static IReadOnlyList<string> ParseModels(string json)
+    /// <summary>Where a service lists its models: beside the address its requests go to.</summary>
+    private static Uri? ModelsUrl(ModelProvider provider, string endpoint)
+    {
+        string baseUrl = endpoint.Trim().TrimEnd('/');
+        if (provider == ModelProvider.Anthropic)
+        {
+            if (baseUrl.Length == 0)
+                baseUrl = AnthropicEndpoint;
+            if (baseUrl.EndsWith("/messages", StringComparison.OrdinalIgnoreCase))
+                baseUrl = baseUrl[..^"/messages".Length];
+            baseUrl += "/models?limit=1000";
+        }
+        else
+        {
+            if (baseUrl.Length == 0)
+                baseUrl = provider == ModelProvider.OpenAI ? OpenAiEndpoint : string.Empty;
+            if (baseUrl.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+                baseUrl = baseUrl[..^"/chat/completions".Length];
+            baseUrl += "/models";
+        }
+        return Uri.TryCreate(baseUrl, UriKind.Absolute, out var url) && url.Scheme is "http" or "https" ? url : null;
+    }
+
+    /// <summary>Parts of the names of OpenAI's models that don't answer chat requests (speech, images, embeddings and the like).</summary>
+    private static readonly string[] NotForChat =
+        ["embedding", "tts", "whisper", "dall-e", "moderation", "image", "audio", "realtime", "transcribe", "davinci", "babbage"];
+
+    /// <summary>
+    /// The ids in a model list ({"data":[{"id":"qwen3:8b"}]}): Anthropic's in its own order (newest first), OpenAI's newest
+    /// first without the models that don't chat, and any other service's sorted by name.
+    /// </summary>
+    public static IReadOnlyList<string> ParseModels(string json, ModelProvider provider = ModelProvider.OpenAICompatible)
     {
         try
         {
-            return (JsonNode.Parse(json)?["data"] as JsonArray ?? new JsonArray())
-                .Select(m => (m?["id"] as JsonValue)?.ToString() ?? string.Empty)
-                .Where(id => id.Length > 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var entries = (JsonNode.Parse(json)?["data"] as JsonArray ?? new JsonArray())
+                .Select(m => (Id: (m?["id"] as JsonValue)?.ToString() ?? string.Empty, Created: (m?["created"] as JsonValue)?.TryGetValue(out long c) == true ? c : 0))
+                .Where(m => m.Id.Length > 0)
+                .DistinctBy(m => m.Id, StringComparer.OrdinalIgnoreCase);
+            return provider switch
+            {
+                ModelProvider.Anthropic => entries.Select(m => m.Id).ToList(),
+                ModelProvider.OpenAI => entries.Where(m => !NotForChat.Any(part => m.Id.Contains(part, StringComparison.OrdinalIgnoreCase)))
+                    .OrderByDescending(m => m.Created).ThenBy(m => m.Id, StringComparer.OrdinalIgnoreCase).Select(m => m.Id).ToList(),
+                _ => entries.Select(m => m.Id).OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToList()
+            };
         }
         catch (JsonException)
         {
