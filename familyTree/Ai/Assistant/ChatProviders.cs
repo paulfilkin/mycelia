@@ -24,7 +24,20 @@ public sealed record ToolResult(string CallId, string Name, string Content, bool
 /// <summary>The conversation, independent of the provider.</summary>
 public abstract record ChatTurn;
 
-public sealed record UserTurn(string Text) : ChatTurn;
+/// <summary>
+/// The person's message, with the context (tree, workspace, selected person) as it was when they sent it.  The context
+/// goes with the message rather than in the system prompt, so the system prompt and every earlier turn stay the same
+/// from step to step and the service can read them from its cache (TDD 22.2).  A model on this computer is sent the
+/// turns without it and has it in its prompt instead (AssistantSession.ShortPrompt).
+/// </summary>
+public sealed record UserTurn(string Text, string? Context = null) : ChatTurn
+{
+    /// <summary>
+    /// The message as the model is sent it: what the person wrote, then the context when there is one.  Put first, the
+    /// context led qwen3:8b to give an empty reply to "Who are their descendants?" (26 November 2026, TDD 22.2).
+    /// </summary>
+    public string ForModel => Context is null ? Text : $"{Text}\n\n[From Mycelia, not the person: the context when this message was sent (JSON): {Context}]";
+}
 
 public sealed record AssistantTurn(string Text, IReadOnlyList<ToolCall> ToolCalls) : ChatTurn;
 
@@ -250,7 +263,7 @@ public sealed class AnthropicChatProvider : IChatProvider
             switch (turn)
             {
                 case UserTurn user:
-                    Add("user", new JsonArray { new JsonObject { ["type"] = "text", ["text"] = user.Text } });
+                    Add("user", new JsonArray { new JsonObject { ["type"] = "text", ["text"] = user.ForModel } });
                     break;
                 case AssistantTurn assistant:
                     var blocks = new JsonArray();
@@ -276,11 +289,19 @@ public sealed class AnthropicChatProvider : IChatProvider
             }
         }
 
+        // Prompt caching (TDD 22.2): the service reads the tools, then the system prompt, then the messages.  One mark at
+        // the end of the system prompt keeps the tools and the prompt, which don't change within a conversation; one on
+        // the last block of the last message keeps the conversation so far, so the next step reads it all from the cache.
+        if (messages.Count > 0 && messages[^1]!["content"] is JsonArray { Count: > 0 } last)
+            last[^1]!["cache_control"] = new JsonObject { ["type"] = "ephemeral" };
         var body = new JsonObject
         {
             ["model"] = _options.Model,
             ["max_tokens"] = _options.MaxTokens,
-            ["system"] = system,
+            ["system"] = new JsonArray
+            {
+                new JsonObject { ["type"] = "text", ["text"] = system, ["cache_control"] = new JsonObject { ["type"] = "ephemeral" } }
+            },
             ["messages"] = messages
         };
         if (tools.Count > 0)
@@ -344,7 +365,7 @@ public sealed class OpenAiChatProvider : IChatProvider
             switch (turn)
             {
                 case UserTurn user:
-                    messages.Add(new JsonObject { ["role"] = "user", ["content"] = user.Text });
+                    messages.Add(new JsonObject { ["role"] = "user", ["content"] = user.ForModel });
                     break;
                 case AssistantTurn assistant:
                     // A reply with neither text nor tool calls (one cut short by the token limit) is refused by the API

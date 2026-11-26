@@ -34,6 +34,16 @@ The Assistant works properly with Ollama on your own computer.
 - **Long conversations keep working with Ollama.**  When a conversation no longer fits the context
   size, the oldest tool results are left out of what is sent, then the oldest exchanges, and the
   pane says so the first time.  The conversation itself is kept.
+- **Anthropic and OpenAI models cost less to use.**  Every step of a request sends Mycelia's
+  instructions, its tools and the whole conversation again.  They are now arranged so that each
+  step starts the same way as the one before, and the service reads that part from its cache at a
+  tenth of the price or less, instead of reading it all again at full price.  In a six-question
+  test with Claude Sonnet 5.5, the input went from 270,387 tokens at full price to 252,053 read
+  from the cache, 26,015 written to it and 36 at full price: about a sixth of the cost.  OpenAI
+  already cached most of each request; it now also does so after a person is selected.  To make
+  this work, these services are sent the tree, the workspace and the selected person with each of
+  your messages, as they were when you sent it, instead of at the start of every step.  A model on
+  your own computer is sent them as before, since qwen3:8b answered less well the new way.
 - **An empty answer is no longer silent.**  When the model gives no answer, the pane says so.  A
   model on your computer is first asked once more, reminded which tools it can ask for.
 
