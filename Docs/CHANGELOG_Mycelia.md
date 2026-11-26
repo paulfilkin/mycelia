@@ -3,7 +3,7 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
-## 0.5.1 - unreleased
+## 0.5.1 - 26 November 2026
 
 The Model list shows only models the service offers you, and the status bar shows the version.
 
