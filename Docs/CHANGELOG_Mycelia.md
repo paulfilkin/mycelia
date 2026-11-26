@@ -56,6 +56,13 @@ The Assistant works properly with Ollama on your own computer.
   about 800 tokens smaller.
 - **An empty answer is no longer silent.**  When the model gives no answer, the pane says so.  A
   model on your computer is first asked once more, reminded which tools it can ask for.
+- **The Model list shows only models the service offers you.**  Options › AI model used to show
+  four fixed names for Anthropic and OpenAI, whatever your key gave you, and for Ollama it showed
+  fixed suggestions instead of your models, with an empty Ollama line and no Start button, until
+  the address was changed.  The list is now read from the service with your address and key:
+  Anthropic's and OpenAI's newest first (OpenAI's without models for speech, images and the like),
+  and the models on your computer for Ollama or LM Studio.  When it can't be read, a note under the
+  box says why, such as no key yet or Ollama not running.  You can still type a model's name.
 
 ## 0.4.1 - 15 November 2026
 

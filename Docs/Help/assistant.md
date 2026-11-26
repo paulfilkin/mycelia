@@ -27,7 +27,7 @@ The Assistant needs an AI model from a service.  Set it in Options > AI model: M
 | Setting | What it does |
 | --- | --- |
 | **Provider** | **Anthropic (Claude)**, **OpenAI**, or **OpenAI-compatible (Ollama, LM Studio, Gemini, Mistral...)** for any service that works like OpenAI's, including programs on your own computer. |
-| **Model** | Pick one of the suggestions or type the model name the service uses.  The default is claude-sonnet-5-5.  For a service on this computer, such as Ollama or LM Studio, the list shows the models it has. |
+| **Model** | Pick one of the models the service lists, or type a model's name.  The list is read from the service with the address and key above, so it shows only models it offers you; for Ollama or LM Studio, the models on this computer.  When the list can't be read, a note under the box says why: no API key yet, the key refused, or a service on this computer that isn't running.  The note also says when the service doesn't list the model in the box.  After you change the provider, the box takes the first model listed. |
 | **Address** | Leave empty for Anthropic's or OpenAI's own service.  For an OpenAI-compatible service, its base address, ending in /v1 or /openai.  The list suggests `http://localhost:11434/v1` (Ollama), `http://localhost:1234/v1` (LM Studio) and the addresses for Gemini and Mistral. |
 | **API key** | The key from the service's own website.  A note under the box says whether one is needed. |
 | **Longest answer** | The most tokens in one answer, 256 to 64000 (16000 by default). |
