@@ -3,6 +3,15 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
+## 0.5.1 - unreleased
+
+The Model list shows only models the service offers you, and the status bar shows the version.
+
+### Changed
+
+- **The status bar shows the version.**  "Mycelia 0.5.1", at the far right, in the same small
+  grey text as the counts, so you can see which version you are running without opening Options.
+
 ## 0.5.0 - 26 November 2026
 
 The Assistant works properly with Ollama on your own computer.
