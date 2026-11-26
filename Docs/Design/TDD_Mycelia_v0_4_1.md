@@ -1368,6 +1368,33 @@ extra request is a second `select_person` the model chose to make.  Both answere
 as before.  qwen3:8b, with the context in its prompt, answered as before 0.5.0: five of the six,
 and on the fifth it passed the name as an id, as it did before.
 
+**Old tool results are sent whole to a hosted model** (#11, tried and left out).  Leaving out
+large results of earlier requests was built and measured on 26 November 2026: at the start of a
+request only, once the results of earlier requests came to more than 20,000 characters, each over
+500 was replaced with a note to call the tool again, and the same turns were left out on every
+later step until the next batch.  With caching, an old result costs a tenth of the price on each
+step, while the step that leaves it out writes everything after it to the cache again, at 1.25
+times the price on Anthropic and at full price on OpenAI.  On eleven questions that read people,
+research context, descendants, a timeline, places and the help, then asked about earlier results:
+
+| | Anthropic, results whole | left out | OpenAI, results whole | left out |
+| --- | ---: | ---: | ---: | ---: |
+| Requests | 20 | 21 | 21 | 25 |
+| At full price | 62 | 64 | 16,782 | 40,587 |
+| Written to the cache | 38,126 | about 48,200 | (not reported) | (not reported) |
+| Read from the cache | 555,071 | about 546,600 | 349,312 | 363,136 |
+| Cost | about $0.151 | about $0.175 | about $0.031 | about $0.041 |
+
+The Anthropic run with results left out began within the cache's five minutes of the other and
+read its first request from it; the figures count that request as a write.  Results were left out
+once, at the sixth question, which took about 5,900 tokens off each later step: about ten more
+steps to make up the rewrite, and the conversation had ten.  OpenAI called tools again for what
+was left out (four more requests), and its last request missed the cache with nothing changed.
+Neither model made anything up about a result it no longer had.  Without caching the same
+conversation would have cost Anthropic about $1.19, so caching is what makes a long conversation
+cost less; leaving results out would pay only when large results (web pages, archive searches)
+are most of a long conversation.
+
 **Ollama** (`OllamaChatProvider`, `OllamaServer`): an OpenAI-compatible address on this computer
 at port 11434 is Ollama's, and is called on Ollama's own `/api/chat` at the same host and port,
 since only that one sets the context size and thinking.  Each request sends `options.num_ctx`
@@ -2474,6 +2501,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 26 November 2026 | 0.5.0 (unreleased) | Old tool results sent whole to a hosted model (#11): leaving them out was measured and cost more with caching, so it was not kept (22.2). |
 | 26 November 2026 | 0.5.0 (unreleased) | Prompt caching (#11): the context goes with each message (`UserTurn.Context`, `ForModel`, `SavedTurn.Context`) instead of ending the system prompt (`AppendServersAndInstructions`), except for a model on this computer, whose `ShortPrompt` keeps it, with the rules changed to match and the instructions for other programs pointing at `get_context`; Anthropic's system prompt and last message marked `cache_control`; `ToolBudget.Choose` keeps the servers' order; the measurements (22.2, 22.6). |
 | 25 November 2026 | 0.5.0 (unreleased) | A local model is sent less (#8): `ToolGroups` and `use_tools`, the note after an empty reply (`EmptyReplyNote`) and the notice for one from any provider, `ShortPrompt` and `AppendContext`, `ContextFit` for Ollama, the pane's tools line; the measurements (22.2). |
 | 25 November 2026 | 0.5.0 (unreleased) | Ollama's own API (#7): `OllamaChatProvider` with the context size, thinking, `truncate: false` and streaming; `OllamaServer` with a job object; installed models and the checks before a request (`PrepareAsync`); `AssistantSettings.OllamaContext`, `OllamaThink`, `AutoStartOllama`; the measured prompt and tool tokens (22.2); the Ollama rows of Options › AI model (22.7). |
