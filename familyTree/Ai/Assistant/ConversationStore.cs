@@ -35,7 +35,7 @@ public sealed class SavedToolCall
 /// <summary>One turn of what is sent to the model: the person's message, the model's reply, or tool results.</summary>
 public sealed class SavedTurn
 {
-    /// <summary>user, assistant or tools.</summary>
+    /// <summary>user, assistant, tools, or tools_added (the names of tools added for Anthropic, one a line, in Text).</summary>
     public string Kind { get; set; } = string.Empty;
     public string? Text { get; set; }
 
@@ -128,6 +128,7 @@ public static class ConversationStore
             Calls = assistant.ToolCalls.Select(c => new SavedToolCall { Id = c.Id, Name = c.Name, Arguments = c.Arguments.ToJsonString() }).ToList()
         },
         ToolResultsTurn results => new SavedTurn { Kind = "tools", Results = results.Results.ToList() },
+        ToolsAddedTurn added => new SavedTurn { Kind = "tools_added", Text = string.Join("\n", added.Names) },
         _ => throw new ArgumentException("Unknown turn " + turn.GetType().Name)
     };
 
@@ -138,6 +139,7 @@ public static class ConversationStore
         "assistant" => new AssistantTurn(turn.Text ?? string.Empty,
             (turn.Calls ?? new List<SavedToolCall>()).Select(c => new ToolCall(c.Id, c.Name, ParseArguments(c.Arguments))).ToList()),
         "tools" => new ToolResultsTurn(turn.Results ?? new List<ToolResult>()),
+        "tools_added" => new ToolsAddedTurn((turn.Text ?? string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries)),
         _ => null
     };
 

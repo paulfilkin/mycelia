@@ -68,6 +68,8 @@ If the model gives no answer at all, the pane says so.  With a model on this com
 
 **Test the model** with Ollama also shows the context size and Ollama's own figures: tokens read and written, and how long it took to load the model, read the request and write the answer.
 
+A Claude model from Anthropic is sent its tools in groups in the same way, with the instructions in full, which makes a conversation cheaper.  The pane shows **Use more tools** when it asks for a group.  OpenAI models are sent every tool.
+
 ### What goes to the service
 
 Your requests, and the tree details the tools read, are sent to the AI service you choose.  A service on this computer keeps them here.  [What the AI model sees](#what-the-ai-model-sees) explains how living and Private people are protected.
