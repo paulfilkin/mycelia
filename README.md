@@ -148,7 +148,7 @@ The project folder is still called `familyTree`, the program's name before 11 No
 
 - [Help](Docs/Help/README.md): how to use Mycelia, from getting started to the Assistant.  In the
   program, F1 opens the page for the screen you're on.
-- [Design record](Docs/Design/TDD_Mycelia_v0_4_1.md): the data model, file format, undo, GEDCOM,
+- [Design record](Docs/Design/TDD_Mycelia_v0_5_0.md): the data model, file format, undo, GEDCOM,
   kinship, data checks, every workspace, the Assistant and what isn't built yet.
 - [Changelog](Docs/CHANGELOG_Mycelia.md).
 - [Design considerations](Docs/Design/Design_Considerations.md): what Mycelia is for, where it
