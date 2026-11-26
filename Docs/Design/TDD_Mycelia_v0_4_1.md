@@ -2585,7 +2585,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
-| 26 November 2026 | 0.5.0 (unreleased) | The Model list shows only what the service lists (#18): `ListModelsAsync` and `ModelList` for every provider, the note under the box, the first read on `Loaded` once `Ollama` is set, a read 600 ms after the address or key changes; `SuggestedModels` removed (22.7). |
+| 26 November 2026 | 0.5.1 (unreleased) | The Model list shows only what the service lists (#18): `ListModelsAsync` and `ModelList` for every provider, the note under the box, the first read on `Loaded` once `Ollama` is set, a read 600 ms after the address or key changes; `SuggestedModels` removed (22.7). |
 | 26 November 2026 | 0.5.0 (unreleased) | Smaller tool definitions (#11): `Schema` leaves out an empty description, 40 parameter descriptions that only said the name or the enum removed, `NoteRuleShort` in notes parameters, six tool descriptions tightened; the measurements (22.2). |
 | 26 November 2026 | 0.5.0 (unreleased) | Anthropic gets the tools in groups and an hour's cache (#16): deferred tools (`ToolSpec.Deferred`), `ToolsAddedTurn` sent as `tool_addition` and saved as `tools_added`, `HostedGroupsNote`, `ttl: 1h` on the system prompt's mark; OpenAI keeps every tool, measured (22.2, 22.6). |
 | 26 November 2026 | 0.5.0 (unreleased) | Old tool results sent whole to a hosted model (#11): leaving them out was measured and cost more with caching, so it was not kept (22.2). |
