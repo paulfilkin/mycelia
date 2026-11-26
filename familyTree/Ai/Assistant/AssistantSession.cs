@@ -184,7 +184,9 @@ public sealed class AssistantSession
             return;
         }
 
-        _turns.Add(new UserTurn(text));
+        // The context as it is now goes with the message and stays with it (TDD 22.2): a hosted model's system prompt
+        // then doesn't change when the selection or the tree does, and every earlier turn can be read from its cache.
+        _turns.Add(new UserTurn(text, _host.Context().ToJsonString()));
         _host.BeginRequest();
         SetBusy(true, "Thinking…");
         _cancel = new CancellationTokenSource();
@@ -253,9 +255,14 @@ public sealed class AssistantSession
                 string system = groups is null ? SystemPrompt(toolNote) : ShortPrompt(groups, all, toolNote);
                 var specs = sent.Select(t => t.ToSpec()).ToList();
                 IReadOnlyList<ChatTurn> turns = _turns;
+                // A model on this computer has the context in its prompt (ShortPrompt), as before 0.5.0: with it on the
+                // message, qwen3:8b answered "tell me about this person" from the context without reading the person
+                // (26 November 2026, TDD 22.2).  The turns keep their context, so a hosted model chosen later has it.
+                if (groups is not null)
+                    turns = _turns.Select(t => t is UserTurn { Context: not null } user ? user with { Context = null } : t).ToList();
                 if (fit)
                 {
-                    turns = ContextFit.Fit(_turns, ContextFit.Fixed(system, specs), ContextFit.Budget(providerOptions.ContextSize), out bool trimmed);
+                    turns = ContextFit.Fit(turns, ContextFit.Fixed(system, specs), ContextFit.Budget(providerOptions.ContextSize), out bool trimmed);
                     // Once trimming starts it happens on every request, so the pane says so once per conversation.
                     if (trimmed && !_saidLeftOut)
                     {
@@ -513,7 +520,7 @@ public sealed class AssistantSession
 
     /// <summary>The rules a program's model should follow with these tools: the system prompt's own (TDD 24).</summary>
     public string InstructionsForPrograms() =>
-        "These tools work on the family tree open in Mycelia, a desktop program, on the person's computer. Changes ask the person in Mycelia first, and each is one step they can undo there.\n\n" + SystemPrompt();
+        "These tools work on the family tree open in Mycelia, a desktop program, on the person's computer. Changes ask the person in Mycelia first, and each is one step they can undo there.\n\n" + SystemPrompt(forPrograms: true);
 
     private void AllowAlways(AssistantTool tool, JsonObject arguments)
     {
@@ -879,7 +886,8 @@ public sealed class AssistantSession
         return builder.ToString();
     }
 
-    private string SystemPrompt(string? toolNote = null)
+    /// <summary>The full system prompt; for other programs (TDD 24), whose messages carry no context, it says to ask for it.</summary>
+    private string SystemPrompt(string? toolNote = null, bool forPrograms = false)
     {
         var builder = new StringBuilder();
         builder.AppendLine("You are the assistant inside Mycelia, a Windows desktop program for recording a family tree: people, families, facts, places, sources, media and charts, with GEDCOM import and export. The person is researching their own family. Use the tools to look at the tree and to do what they ask.");
@@ -900,7 +908,9 @@ public sealed class AssistantSession
         builder.AppendLine("- End your reply when the task is done or you need an answer. Don't end with offers such as \"If you want, I can...\".");
         builder.AppendLine();
         builder.AppendLine("Rules:");
-        builder.AppendLine("- 'This person' means the selected person in the context below; call get_context if it may have changed.");
+        builder.AppendLine(forPrograms
+            ? "- 'This person' means the person selected in Mycelia; call get_context to see who that is, the tree and the workspace."
+            : "- Each of the person's messages ends with the context when they sent it (the tree, the workspace, the selected person). 'This person' means the selected person in the context of their latest message; call get_context if it may have changed since, for example after select_person.");
         builder.AppendLine("- Genealogy needs evidence: keep what the tree says apart from what a record or source says, and never present a guess as a fact. Say where each finding came from.");
         // The tree's own rules (TDD 22.2): how the program keeps dates, partners and evidence.
         builder.AppendLine("- People, families, facts, places and sources are named by id in the tools; find ids with search_people, get_person, get_family, list_places and list_sources rather than guessing them. In replies, call them by their names; give an id only when the person asks for it.");
@@ -952,7 +962,7 @@ public sealed class AssistantSession
         builder.AppendLine("- Say when a site needs a subscription or a sign-in, and point the person to it rather than guessing what it holds.");
         builder.AppendLine("- Never invent a record, a reference, a quotation or a web address. If a search finds nothing, say so. A record about someone with the same name is a candidate, not a match: say what links it to the person, or what would confirm it.");
         builder.AppendLine("- download_file saves a record image or document into the tree's media folder; offer it for records worth keeping.");
-        AppendContext(builder);
+        AppendServersAndInstructions(builder);
         return builder.ToString();
     }
 
@@ -1002,16 +1012,21 @@ public sealed class AssistantSession
             b.AppendLine();
             b.AppendLine("More tools: when a request needs them, call use_tools with " + string.Join("; ", missing.Select(g => $"{g.Name} ({g.Purpose})")) + ".");
         }
-        AppendContext(b);
+        // The context is here rather than on each message for a model on this computer (see SendAsync).
+        b.AppendLine();
+        b.AppendLine("Current context (JSON):");
+        b.AppendLine(_host.Context().ToJsonString());
+        AppendServersAndInstructions(b);
         return b.ToString();
     }
 
-    /// <summary>The end of both prompts: the context, the connected MCP servers and the person's own instructions.</summary>
-    private void AppendContext(StringBuilder builder)
+    /// <summary>
+    /// The end of both prompts: the connected MCP servers and the person's own instructions.  The full prompt has no
+    /// context: it goes with each of the person's messages (UserTurn.Context), so the prompt stays the same between steps
+    /// (TDD 22.2).  The short prompt has the context itself.
+    /// </summary>
+    private void AppendServersAndInstructions(StringBuilder builder)
     {
-        builder.AppendLine();
-        builder.AppendLine("Current context (JSON):");
-        builder.AppendLine(_host.Context().ToJsonString());
         var servers = Hub.States.Where(s => s.Status == McpServerStatus.Connected).ToList();
         if (servers.Count > 0)
         {

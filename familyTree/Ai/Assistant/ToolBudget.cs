@@ -119,11 +119,14 @@ public static class ToolBudget
                 if (recent[i] == name) { at = recent.Count - 1 - i; break; }
             return at < 0 ? int.MaxValue : at;
         }
+        // Chosen by rank, then sent in the order their servers list them, so a step that chooses the same tools sends
+        // them in the same order and the service can read them from its cache (TDD 22.2).
         chosen.AddRange(external
             .OrderBy(e => Rank(e.tool.Name))
             .ThenByDescending(e => Score(e.tool, words))
             .ThenBy(e => e.index)
             .Take(places)
+            .OrderBy(e => e.index)
             .Select(e => e.tool));
         return chosen;
     }

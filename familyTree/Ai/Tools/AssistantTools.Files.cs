@@ -43,7 +43,7 @@ public sealed partial class AssistantTools
 
         Read("show_workspace", "Show a workspace",
             "Shows one of the program's workspaces: Home, People (the tree), Person (the selected person's Person view), Places, Sources, Media, Charts or Tools.",
-            Schema.Object(("workspace", Schema.String("Which.", Workspaces), true)),
+            Schema.Object(("workspace", Schema.String("", Workspaces), true)),
             args =>
             {
                 var name = args.Str("workspace") ?? "";
@@ -56,7 +56,7 @@ public sealed partial class AssistantTools
         Read("show_chart", "Show a chart",
             "Opens the Charts workspace on a chart for a person: Pedigree, Descendants, Fan or FamilyGroupSheet, with a number of generations (2 to 7). The person can then save it as a picture or print it.",
             Schema.Object(
-                ("kind", Schema.String("The chart.", EnumNames<ChartKind>()), true),
+                ("kind", Schema.String("", EnumNames<ChartKind>()), true),
                 ("person_id", Schema.String("Whose chart; the selected person if left out."), false),
                 ("generations", Schema.Integer("Generations, 2 to 7 (not for a family group sheet)."), false)),
             args =>
@@ -178,12 +178,12 @@ public sealed partial class AssistantTools
         {
             Name = "download_file",
             Title = "Download a record",
-            Description = "Downloads a record image or document (a register page, a certificate, a census image, a newspaper clipping) from a web address into the tree's media folder beside the tree file, and by default adds it as a media item linked to people. Never overwrites. The tree must have been saved once, so it has a folder.",
+            Description = "Downloads a record image or document (register page, certificate, census image, clipping) from a web address into the tree's media folder and, by default, adds it as a media item linked to people. Never overwrites. The tree must have been saved once, so it has a folder.",
             Schema = Schema.Object(
                 ("url", Schema.String("The file's web address (https:// or http://)."), true),
                 ("file_name", Schema.String("A file name to save it as (the server's name if left out)."), false),
                 ("add_as_media", Schema.Boolean("Add it to the tree as a media item (default true)."), false),
-                ("caption", Schema.String("The media item's caption."), false),
+                ("caption", Schema.String(""), false),
                 ("date", Schema.String("The record's date."), false),
                 ("category", Schema.String("Category (Certificate, Census, Register, Newspaper, Photo...)."), false),
                 ("description", Schema.String("Description, such as where it came from."), false),

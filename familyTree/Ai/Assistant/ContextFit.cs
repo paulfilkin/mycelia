@@ -37,7 +37,7 @@ public static class ContextFit
     /// <summary>An estimate of the tokens one turn takes, with a few for the message's own marks.</summary>
     public static int Estimate(ChatTurn turn) => turn switch
     {
-        UserTurn user => 4 + (int)(user.Text.Length / TurnChars),
+        UserTurn user => 4 + (int)(user.ForModel.Length / TurnChars),
         AssistantTurn assistant => 4 + (int)((assistant.Text.Length
             + assistant.ToolCalls.Sum(c => c.Name.Length + c.Arguments.ToJsonString().Length + 12)) / TurnChars),
         ToolResultsTurn results => results.Results.Sum(r => 6 + (int)((r.Name.Length + r.Content.Length) / TurnChars)),

@@ -38,6 +38,10 @@ public sealed class SavedTurn
     /// <summary>user, assistant or tools.</summary>
     public string Kind { get; set; } = string.Empty;
     public string? Text { get; set; }
+
+    /// <summary>The context sent with the person's message (JSON); none in conversations saved before 0.5.0.</summary>
+    public string? Context { get; set; }
+
     public List<SavedToolCall>? Calls { get; set; }
     public List<ToolResult>? Results { get; set; }
 }
@@ -116,7 +120,7 @@ public static class ConversationStore
 
     public static SavedTurn ToSaved(ChatTurn turn) => turn switch
     {
-        UserTurn user => new SavedTurn { Kind = "user", Text = user.Text },
+        UserTurn user => new SavedTurn { Kind = "user", Text = user.Text, Context = user.Context },
         AssistantTurn assistant => new SavedTurn
         {
             Kind = "assistant",
@@ -130,7 +134,7 @@ public static class ConversationStore
     /// <summary>The turn for the model, or null for one that can't be rebuilt.</summary>
     public static ChatTurn? FromSaved(SavedTurn turn) => turn.Kind switch
     {
-        "user" => new UserTurn(turn.Text ?? string.Empty),
+        "user" => new UserTurn(turn.Text ?? string.Empty, turn.Context),
         "assistant" => new AssistantTurn(turn.Text ?? string.Empty,
             (turn.Calls ?? new List<SavedToolCall>()).Select(c => new ToolCall(c.Id, c.Name, ParseArguments(c.Arguments))).ToList()),
         "tools" => new ToolResultsTurn(turn.Results ?? new List<ToolResult>()),

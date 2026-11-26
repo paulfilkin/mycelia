@@ -30,7 +30,7 @@ public sealed partial class AssistantTools
     private IEnumerable<AssistantTool> ResearchTools()
     {
         yield return Read("suggest_resources", "Suggest where to look",
-            "Suggests genealogy websites and archives to search, from Mycelia's built-in list (compiled " + ResourceList.Compiled + "): for a country or region and a kind of record, with each site's cost, how it is used, whether it has an API or an MCP server, and notes. Sites marked with an API id can be read with fetch_url (see api_notes). Use it before searching, and tell the person where else to look by hand.",
+            "Genealogy websites and archives to search, from Mycelia's list (compiled " + ResourceList.Compiled + "), for a country or region and a kind of record: each site's cost, how it is used, any API or MCP server, and notes. Sites with an API id can be read with fetch_url (see api_notes). Use it before searching, and tell the person where else to look by hand.",
             Schema.Object(
                 ("place", Schema.String("A country or region, such as Ireland, Germany, the Netherlands, Australia."), false),
                 ("record_type", Schema.String("A kind of record or topic, such as parish registers, census, wills, military, newspapers, DNA, emigration."), false),
