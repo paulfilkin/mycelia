@@ -1862,12 +1862,22 @@ shows its answer.
 
 Five tabs after the three general ones:
 
-- **AI model:** provider, model (suggestions per provider, any name can be typed; for a service on
-  this computer, the models it has), address (empty for Anthropic's and OpenAI's own; suggestions
+- **AI model:** provider, model, address (empty for Anthropic's and OpenAI's own; suggestions
   for Ollama, LM Studio, Gemini and Mistral), API key (kept per provider, DPAPI-encrypted, with a
   note saying whether one is needed), longest answer (256 to 64,000 tokens) and Test the model,
   which asks for the word OK and shows the answer and token counts, or for Ollama the context size
-  and Ollama's figures.  For an Ollama address (22.2) three more rows show: Ollama, whether it is
+  and Ollama's figures.  The Model list holds only the models the service lists for the address
+  and key (`ChatProviders.ListModelsAsync`): Anthropic's `GET /v1/models?limit=1000` in its own
+  order, newest first; OpenAI's `GET /models` newest first (`created`), without the models whose
+  names show they don't chat (`NotForChat`: embeddings, speech, images, moderation and the like);
+  any other service's `GET {base}/models` sorted by name.  Any name can still be typed.  When the
+  list can't be read it is empty and a note under the box says why (no key, the key refused, the
+  service not answering), and the note says when the service doesn't list the model in the box.
+  The first read is on `Loaded`, since `MainWindow` gives the window `Ollama` after making it (null
+  means nothing is read, as for a check picture); a change of address or key reads it again
+  600 ms after the last keystroke.  Changing the provider empties the box, which takes the first
+  model listed.  `ChatProviders.DefaultModel` is saved when the box is empty: claude-sonnet-5-5,
+  gpt-5, or nothing for another service.  For an Ollama address (22.2) three more rows show: Ollama, whether it is
   running, with Start and Stop (which act at once, not on OK; Stop only for a server Mycelia
   started) and Start Ollama when a request needs it; Context size; and Thinking.  The page says
   that requests and the tree details the tools read go to the service, and that a service on this
@@ -2575,6 +2585,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 26 November 2026 | 0.5.1 (unreleased) | The Model list shows only what the service lists (#18): `ListModelsAsync` and `ModelList` for every provider, the note under the box, the first read on `Loaded` once `Ollama` is set, a read 600 ms after the address or key changes; `SuggestedModels` removed (22.7). |
 | 26 November 2026 | 0.5.0 (unreleased) | Smaller tool definitions (#11): `Schema` leaves out an empty description, 40 parameter descriptions that only said the name or the enum removed, `NoteRuleShort` in notes parameters, six tool descriptions tightened; the measurements (22.2). |
 | 26 November 2026 | 0.5.0 (unreleased) | Anthropic gets the tools in groups and an hour's cache (#16): deferred tools (`ToolSpec.Deferred`), `ToolsAddedTurn` sent as `tool_addition` and saved as `tools_added`, `HostedGroupsNote`, `ttl: 1h` on the system prompt's mark; OpenAI keeps every tool, measured (22.2, 22.6). |
 | 26 November 2026 | 0.5.0 (unreleased) | Old tool results sent whole to a hosted model (#11): leaving them out was measured and cost more with caching, so it was not kept (22.2). |
