@@ -10,21 +10,23 @@ MCP servers do that for a family tree.  MCP also stands for "Mycelia Connects Pe
 
 ![The People workspace with a research log and the Assistant](Docs/Images/people.png)
 
-> **Status:** version 0.5.0, in development.  Ready-built versions for testing are on the
+> **Status:** version 0.5.1, in development.  Ready-built versions for testing are on the
 > [Releases page](https://github.com/paulfilkin/mycelia/releases) (see [Download](#download)).
 > The tree file format may still change.
 
-## New in 0.4.0
+## New in 0.5
 
-- **A research log** on each person and couple: one entry per question, with where has been
-  searched, what came of it and what to try next.  The Tools workspace's research to-do lists
-  every open question.
-- **Research that builds on what the family's records already hold.**  The Assistant reads the
-  notes and research logs of the person and their nearest relatives first, so it doesn't search
-  again what has been searched.
-- **An Assistant that can't claim what it didn't do.**  Searches that never ran aren't logged, the
-  pane lists the pages each request read, and every change shows what it will change before you
-  approve it.
+- **The Assistant works with Ollama on your own computer.**  Mycelia talks to Ollama directly,
+  gives the model room for its instructions and tools, and can start and stop Ollama for you.  A
+  model on your computer is sent only the tools it needs, so one such as qwen3:8b on an 8 GB
+  graphics card can use them, and the requests to the model stay on your computer.
+- **Claude and OpenAI models cost less.**  Each request is arranged so the service reads most of it
+  from its cache, and Claude keeps that cache for an hour.  In a six-question test with Claude
+  Sonnet 5.5, the input cost about a sixth of what it did before.
+- **The Model list shows the models you have.**  Options › AI model lists what your service offers
+  you: the models on your computer for Ollama or LM Studio, and the models your key gives you for
+  Claude and OpenAI.
+- **The status bar shows the version** you are running.
 
 The [changelog](Docs/CHANGELOG_Mycelia.md) has the rest.
 
@@ -148,7 +150,7 @@ The project folder is still called `familyTree`, the program's name before 11 No
 
 - [Help](Docs/Help/README.md): how to use Mycelia, from getting started to the Assistant.  In the
   program, F1 opens the page for the screen you're on.
-- [Design record](Docs/Design/TDD_Mycelia_v0_5_0.md): the data model, file format, undo, GEDCOM,
+- [Design record](Docs/Design/TDD_Mycelia_v0_5_1.md): the data model, file format, undo, GEDCOM,
   kinship, data checks, every workspace, the Assistant and what isn't built yet.
 - [Changelog](Docs/CHANGELOG_Mycelia.md).
 - [Design considerations](Docs/Design/Design_Considerations.md): what Mycelia is for, where it
