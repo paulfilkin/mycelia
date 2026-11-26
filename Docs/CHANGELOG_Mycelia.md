@@ -3,7 +3,7 @@
 Each released version gets an entry here, newest first.  Entries are written for someone who has to
 understand what changed without reading the diff.
 
-## 0.5.0 - unreleased
+## 0.5.0 - 26 November 2026
 
 The Assistant works properly with Ollama on your own computer.
 
