@@ -140,6 +140,8 @@
         <!-- Status bar -->
         <Border Grid.Row="2" Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0">
             <DockPanel Margin="16,0" VerticalAlignment="Center">
+                <!-- The running version, far right (TDD 14); left out of check pictures so they don't date. -->
+                <TextBlock x:Name="VersionText" DockPanel.Dock="Right" Style="{StaticResource Caption}" Margin="28,0,0,0" />
                 <TextBlock x:Name="StatusRight" DockPanel.Dock="Right" Style="{StaticResource Caption}" />
                 <!-- Other programs using the tools (TDD 24); empty while they are switched off. -->
                 <TextBlock x:Name="ServingStatus" DockPanel.Dock="Right" Style="{StaticResource Caption}" Margin="0,0,28,0" Foreground="{StaticResource Brand}" />

@@ -54,7 +54,7 @@ From left to right, the dark bar at the top of the window holds:
 
 In a narrow window the **Assistant** and **Save** buttons, and then the workspace tabs, show only their icons.  Point at a tab to see its name.
 
-The status bar along the bottom of the window shows how many people, families, places, sources and media items the tree has, and the home person.
+The status bar along the bottom of the window shows how many people, families, places, sources and media items the tree has, and the home person.  At its far right is the version of Mycelia you are running, such as "Mycelia 0.5.0".
 
 ## The main menu
 

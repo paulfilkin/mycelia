@@ -714,7 +714,9 @@ Charts, Tools), the Assistant button, Back and Forward arrows, Undo, Redo, Save 
 says whether everything is saved; `UpdateChrome`);
 the workspace host, with the Assistant pane and its drag handle to its right when open (section
 22.1); and a status bar with the counts and the home person (and the Assistant's occasional
-messages, such as a conversation that couldn't be saved).  In a narrow window the top bar drops
+messages, such as a conversation that couldn't be saved), and at its far right the running version,
+"Mycelia 0.5.0" (`VersionText`, from `SemanticVersion.Current`, the version the update check
+uses), which is left out in screenshot mode so the help pictures don't date with each release.  In a narrow window the top bar drops
 words so nothing overlaps: below 1240 px the Assistant and Save buttons show their icons only, and
 below 1140 px the workspace tabs do too (each tab has its name as a tooltip).  It starts on the Options start-up workspace
 (People by default; always People in screenshot mode).
@@ -2585,6 +2587,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 26 November 2026 | 0.5.1 (unreleased) | The running version at the status bar's far right (#20): `VersionText`, left out in screenshot mode (14). |
 | 26 November 2026 | 0.5.1 (unreleased) | The Model list shows only what the service lists (#18): `ListModelsAsync` and `ModelList` for every provider, the note under the box, the first read on `Loaded` once `Ollama` is set, a read 600 ms after the address or key changes; `SuggestedModels` removed (22.7). |
 | 26 November 2026 | 0.5.0 (unreleased) | Smaller tool definitions (#11): `Schema` leaves out an empty description, 40 parameter descriptions that only said the name or the enum removed, `NoteRuleShort` in notes parameters, six tool descriptions tightened; the measurements (22.2). |
 | 26 November 2026 | 0.5.0 (unreleased) | Anthropic gets the tools in groups and an hour's cache (#16): deferred tools (`ToolSpec.Deferred`), `ToolsAddedTurn` sent as `tool_addition` and saved as `tools_added`, `HostedGroupsNote`, `ttl: 1h` on the system prompt's mark; OpenAI keeps every tool, measured (22.2, 22.6). |

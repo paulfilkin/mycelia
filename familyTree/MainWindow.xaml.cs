@@ -53,6 +53,7 @@ public partial class MainWindow : Window, IAssistantHost, IToolHost, Updates.IUp
         Body.SizeChanged += (_, _) => UpdateAssistantColumn();
         LayoutUpdated += (_, _) => AlignAssistant();
         SizeChanged += (_, _) => FitTopBar();
+        if (!_screenshot) VersionText.Text = $"Mycelia {Updates.SemanticVersion.Current}";
         foreach (var tab in NavTabs.Children.OfType<RadioButton>()) tab.ToolTip = (string)tab.Tag;
 
         // The Assistant (TDD 22): one conversation per tree, MCP servers connected in the background.

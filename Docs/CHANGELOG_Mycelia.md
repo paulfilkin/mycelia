@@ -16,6 +16,8 @@ The Model list shows only models the service offers you, and the status bar show
   Anthropic's and OpenAI's newest first (OpenAI's without models for speech, images and the like),
   and the models on your computer for Ollama or LM Studio.  When it can't be read, a note under the
   box says why, such as no key yet or Ollama not running.  You can still type a model's name.
+- **The status bar shows the version.**  "Mycelia 0.5.1", at the far right, in the same small
+  grey text as the counts, so you can see which version you are running without opening Options.
 
 ## 0.5.0 - 26 November 2026
 
