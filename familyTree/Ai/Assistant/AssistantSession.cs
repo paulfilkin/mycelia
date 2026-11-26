@@ -216,6 +216,24 @@ public sealed class AssistantSession
                 var all = Tools();
                 var groups = ActiveGroups();
                 var offered = groups is null ? all : Offered(all, groups);
+                // Anthropic gets the tools in groups too, with the cache kept (TDD 22.2): every tool is declared, those of the
+                // groups not shown at the start are deferred, and a group added later comes as a ToolsAddedTurn, so the
+                // start of the request stays the same for the conversation.  use_tools lists every group for the same
+                // reason.  OpenAI gets every tool: groups saved it under a tenth of a cent on six questions and gpt-5-mini
+                // never asked for one (26 November 2026).
+                bool hostedGroups = groups is null && options.Provider == ModelProvider.Anthropic;
+                HashSet<string>? visible = null;
+                if (hostedGroups)
+                {
+                    _hostedGroups ??= new HashSet<string>(ToolGroups.ForWorkspace((_host.Context()["workspace"] as JsonValue)?.ToString()));
+                    visible = new HashSet<string>(_hostedGroups);
+                    visible.UnionWith(_addedGroups);
+                    // A conversation kept from an earlier session has its added groups only in its turns.
+                    foreach (var name in _turns.OfType<ToolsAddedTurn>().SelectMany(t => t.Names))
+                        if (all.FirstOrDefault(t => t.Name == name) is { } addedTool && ToolGroups.Of(addedTool) is { } addedGroup)
+                            visible.Add(addedGroup);
+                    offered = all.Append(UseTools(OptionalGroups(all))).ToList();
+                }
                 // Not every tool may fit in one request (ToolBudget): the rest are reached through find_tools.
                 List<AssistantTool> sent = offered;
                 int? limit = _toolLimit ?? ToolBudget.LimitFor(options.Provider);
@@ -252,8 +270,11 @@ public sealed class AssistantSession
                     }
                 }
                 string? toolNote = sent.Count < offered.Count ? ToolBudget.PromptNote(sent.Count, offered.Count - 1, limit!.Value) : null;
+                if (hostedGroups)
+                    toolNote = (toolNote is null ? string.Empty : toolNote + "\n") + HostedGroupsNote(all);
                 string system = groups is null ? SystemPrompt(toolNote) : ShortPrompt(groups, all, toolNote);
-                var specs = sent.Select(t => t.ToSpec()).ToList();
+                var specs = sent.Select(t => hostedGroups && ToolGroups.Of(t) is { } g && !_hostedGroups!.Contains(g)
+                    ? t.ToSpec() with { Deferred = true } : t.ToSpec()).ToList();
                 IReadOnlyList<ChatTurn> turns = _turns;
                 // A model on this computer has the context in its prompt (ShortPrompt), as before 0.5.0: with it on the
                 // message, qwen3:8b answered "tell me about this person" from the context without reading the person
@@ -339,6 +360,13 @@ public sealed class AssistantSession
                     results.Add(await RunToolAsync(call, runnable, cancel));
                 }
                 _turns.Add(new ToolResultsTurn(results));
+                // A group use_tools added this step is shown to Anthropic from the next.
+                if (hostedGroups)
+                {
+                    var added = _addedGroups.Where(g => !visible!.Contains(g)).ToHashSet();
+                    if (added.Count > 0)
+                        _turns.Add(new ToolsAddedTurn(all.Where(t => ToolGroups.Of(t) is { } g && added.Contains(g)).Select(t => t.Name).ToList()));
+                }
             }
             Items.Add(new NoticeMessage($"Stopped after {options.MaxSteps} steps (Options › Assistant). Ask it to carry on if needed.", false));
         }
@@ -570,6 +598,7 @@ public sealed class AssistantSession
         _recentTools.Clear();
         _addedGroups.Clear();
         _saidLeftOut = false;
+        _hostedGroups = null;
         if (_conversationPath != null)
             ConversationStore.Delete(_conversationPath);
         Status?.Invoke("Cleared the Assistant's conversation.");
@@ -618,6 +647,7 @@ public sealed class AssistantSession
         _recentTools.Clear();
         _addedGroups.Clear();
         _saidLeftOut = false;
+        _hostedGroups = null;
         _conversationPath = _host.KeepConversations ? ConversationStore.PathFor(treePath) : null;
         _treePath = treePath;
         RestoreConversation();
@@ -791,9 +821,18 @@ public sealed class AssistantSession
     /// <summary>The pane has said that earlier parts are left out to fit the context (ContextFit), in this conversation.</summary>
     private bool _saidLeftOut;
 
+    /// <summary>The groups Anthropic was shown at the start of this conversation; null until its first request.</summary>
+    private HashSet<string>? _hostedGroups;
+
+    /// <summary>For Anthropic, sent the tools in groups: every group, so the prompt is the same whichever are added.</summary>
+    private static string HostedGroupsNote(IReadOnlyList<AssistantTool> all) =>
+        "- Some tools come in groups, offered when needed. When a request needs a tool you don't have, call use_tools with its group: "
+        + string.Join("; ", OptionalGroups(all).Select(g => $"{g.Name} ({g.Purpose})"))
+        + ". Its tools are offered from your next step, for the rest of the conversation. Don't say something can't be done before adding the group it needs.";
+
     /// <summary>
     /// The groups a model on this computer is sent: those for the workspace the person is on and any it asked for.  Null
-    /// for a hosted model, which gets every tool and the full prompt.
+    /// for a hosted model, which gets the full prompt and every tool (Anthropic with some deferred, in the step loop).
     /// </summary>
     private HashSet<string>? ActiveGroups()
     {

@@ -44,6 +44,12 @@ The Assistant works properly with Ollama on your own computer.
   this work, these services are sent the tree, the workspace and the selected person with each of
   your messages, as they were when you sent it, instead of at the start of every step.  A model on
   your own computer is sent them as before, since qwen3:8b answered less well the new way.
+- **Claude models cost less again, most of all with pauses.**  Mycelia's instructions and tools
+  are now kept in Anthropic's cache for an hour instead of five minutes, so a question asked after
+  a pause no longer pays to send them again.  Claude is also sent its tools in groups, as a model
+  on your computer is, and asks for a group when it needs one; the pane shows this as **Use more
+  tools**.  In a test of four questions six minutes apart, the cost went from about $0.24 to about
+  $0.11.  OpenAI models are sent every tool as before: groups saved almost nothing there.
 - **The Assistant's tools take less room.**  Their descriptions are 6% shorter: wording that only
   repeated a field's name or its choices is gone, and the rule for what belongs in notes is given
   in full once rather than in every tool that writes notes.  A request that sends every tool is

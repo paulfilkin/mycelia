@@ -14,8 +14,11 @@ public enum ModelProvider
     OpenAICompatible
 }
 
-/// <summary>A tool the model may call: a name, what it does, and a JSON Schema for its arguments.</summary>
-public sealed record ToolSpec(string Name, string Description, JsonObject InputSchema);
+/// <summary>
+/// A tool the model may call: a name, what it does, and a JSON Schema for its arguments.  A deferred one is declared but
+/// not shown to the model until a ToolsAddedTurn adds it (Anthropic).
+/// </summary>
+public sealed record ToolSpec(string Name, string Description, JsonObject InputSchema, bool Deferred = false);
 
 public sealed record ToolCall(string Id, string Name, JsonObject Arguments);
 
@@ -40,6 +43,13 @@ public sealed record UserTurn(string Text, string? Context = null) : ChatTurn
 }
 
 public sealed record AssistantTurn(string Text, IReadOnlyList<ToolCall> ToolCalls) : ChatTurn;
+
+/// <summary>
+/// Tools shown to Anthropic from this point of the conversation, when use_tools adds a group (TDD 22.2).  It is sent a
+/// tool_addition for each, so the tools declared at the start, and the cache, stay the same.  Other providers are sent
+/// every tool they are offered and skip this turn.
+/// </summary>
+public sealed record ToolsAddedTurn(IReadOnlyList<string> Names) : ChatTurn;
 
 public sealed record ToolResultsTurn(IReadOnlyList<ToolResult> Results) : ChatTurn;
 
@@ -89,6 +99,9 @@ public static class ChatProviders
 {
     public const string AnthropicEndpoint = "https://api.anthropic.com/v1/messages";
     public const string AnthropicVersion = "2023-06-01";
+
+    /// <summary>Anthropic's beta for deferred tools and tool_addition, which keep the cache when tools are added.</summary>
+    public const string ToolChangesBeta = "mid-conversation-tool-changes-2026-07-01";
     public const string OpenAiEndpoint = "https://api.openai.com/v1";
 
     /// <summary>Suggested model names per provider (any name can be typed).</summary>
@@ -242,6 +255,7 @@ public sealed class AnthropicChatProvider : IChatProvider
         Action<string>? onText = null)
     {
         var messages = new JsonArray();
+        var deferred = tools.Where(t => t.Deferred).Select(t => t.Name).ToHashSet();
         void Add(string role, JsonArray content)
         {
             // Consecutive turns of one role are merged into one message.
@@ -286,30 +300,49 @@ public sealed class AnthropicChatProvider : IChatProvider
                         });
                     Add("user", resultBlocks);
                     break;
+                // Only a tool deferred in this request can be added: a conversation kept from an earlier session, or begun
+                // on another workspace, may name one that is now shown from the start or no longer there.
+                case ToolsAddedTurn added when added.Names.Any(deferred.Contains):
+                    Add("system", new JsonArray(added.Names.Where(deferred.Contains).Select(n => (JsonNode)new JsonObject
+                    {
+                        ["type"] = "tool_addition",
+                        ["tool"] = new JsonObject { ["type"] = "tool_reference", ["name"] = n }
+                    }).ToArray()));
+                    break;
             }
         }
 
         // Prompt caching (TDD 22.2): the service reads the tools, then the system prompt, then the messages.  One mark at
         // the end of the system prompt keeps the tools and the prompt, which don't change within a conversation; one on
         // the last block of the last message keeps the conversation so far, so the next step reads it all from the cache.
-        if (messages.Count > 0 && messages[^1]!["content"] is JsonArray { Count: > 0 } last)
+        // The mark goes on the last message that isn't a tool_addition.  The system prompt's mark lasts an hour, so the
+        // tools and prompt are read after a pause of more than five minutes rather than written again: it costs $4 a
+        // million to write against $2.50, and halved the cost of four questions six minutes apart (26 November 2026).
+        if (messages.LastOrDefault(m => m!["role"]!.GetValue<string>() != "system")?["content"] is JsonArray { Count: > 0 } last)
             last[^1]!["cache_control"] = new JsonObject { ["type"] = "ephemeral" };
+        var systemMark = new JsonObject { ["type"] = "ephemeral", ["ttl"] = "1h" };
         var body = new JsonObject
         {
             ["model"] = _options.Model,
             ["max_tokens"] = _options.MaxTokens,
             ["system"] = new JsonArray
             {
-                new JsonObject { ["type"] = "text", ["text"] = system, ["cache_control"] = new JsonObject { ["type"] = "ephemeral" } }
+                new JsonObject { ["type"] = "text", ["text"] = system, ["cache_control"] = systemMark }
             },
             ["messages"] = messages
         };
         if (tools.Count > 0)
-            body["tools"] = new JsonArray(tools.Select(t => (JsonNode)new JsonObject
+            body["tools"] = new JsonArray(tools.Select(t =>
             {
-                ["name"] = t.Name,
-                ["description"] = t.Description,
-                ["input_schema"] = t.InputSchema.DeepClone()
+                var tool = new JsonObject
+                {
+                    ["name"] = t.Name,
+                    ["description"] = t.Description,
+                    ["input_schema"] = t.InputSchema.DeepClone()
+                };
+                if (t.Deferred)
+                    tool["defer_loading"] = true;
+                return (JsonNode)tool;
             }).ToArray());
 
         string url = string.IsNullOrWhiteSpace(_options.Endpoint) ? ChatProviders.AnthropicEndpoint : _options.Endpoint.Trim();
@@ -319,6 +352,8 @@ public sealed class AnthropicChatProvider : IChatProvider
         };
         request.Headers.Add("x-api-key", _options.ApiKey);
         request.Headers.Add("anthropic-version", ChatProviders.AnthropicVersion);
+        if (deferred.Count > 0)
+            request.Headers.Add("anthropic-beta", ChatProviders.ToolChangesBeta);
 
         var json = await ChatProviders.PostAsync(request, "Anthropic", cancel);
         var text = new StringBuilder();

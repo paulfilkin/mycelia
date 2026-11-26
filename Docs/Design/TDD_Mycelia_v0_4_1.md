@@ -1339,9 +1339,10 @@ and the services read what they have seen before from their cache:
   the selection changes, as it did before; the first request of 7,521 tokens took 5.3 s to read
   with an RTX 4060.
 - **Anthropic** (`AnthropicChatProvider`): the system prompt is sent as one text block marked
-  `cache_control: ephemeral` (the five-minute cache), which keeps the tools and the prompt, since
-  the service reads the tools first; and the last block of the last message is marked too, which
-  keeps the conversation so far.  Two of the four marks the service allows.
+  `cache_control: ephemeral` with `ttl: 1h` (the hour's cache, #16), which keeps the tools and the
+  prompt, since the service reads the tools first; and the last block of the last message that
+  isn't a `tool_addition` is marked with the five-minute cache, which keeps the conversation so far.
+  Two of the four marks the service allows; the longer one comes first, as the service requires.
 - **OpenAI** caches the start of a request by itself once it is over 1,024 tokens and the same as
   before; nothing is marked.
 - **`ToolBudget.Choose`** sends the MCP tools it chooses in the order their servers list them, so
@@ -1418,6 +1419,55 @@ as before, and qwen3:8b five of the six as before; on the fifth it again showed 
 person's timeline.  The repeated structure of the schemas (`type` and `description` for each
 parameter) is most of what is left.
 
+**Anthropic gets the tools in groups and an hour's cache** (#16).  The tool definitions and the
+system prompt are written to the cache at the start of a conversation and, with the five-minute
+cache, again after every pause longer than that.  Two changes:
+
+- **The hour's cache** on the system prompt's mark (above).  Writing for an hour costs $4 a
+  million against $2.50 for five minutes, and is paid once an hour; it pays for itself after one
+  pause of more than five minutes in that hour.
+- **Tool groups** (`ToolGroups`, below) for Anthropic, with the cache kept.  Every tool is
+  declared, and those of the groups not shown at the start of the conversation (the workspace's
+  groups then, `_hostedGroups`) are marked `defer_loading` (`ToolSpec.Deferred`): the service
+  doesn't show them to the model or count them.  `use_tools`, listing every optional group, is
+  always sent, and the system prompt gets a note listing the groups (`HostedGroupsNote`); both
+  stay the same whichever groups are added, so the start of the request does too.  A group added
+  by `use_tools` goes in the conversation as a `ToolsAddedTurn`, sent as a `system` message of
+  `tool_addition` blocks naming its tools, so the tools list doesn't change.  These need the
+  `anthropic-beta: mid-conversation-tool-changes-2026-07-01` header
+  (`ChatProviders.ToolChangesBeta`), sent when a tool is deferred.  A `tool_addition` is sent only
+  for a tool deferred in that request: a conversation kept from an earlier session, or begun on
+  another workspace, may name one now shown from the start or no longer connected.  Its groups
+  count as added (they are read from the turns, since `_addedGroups` isn't saved).  OpenAI and
+  Ollama skip the turn.
+
+Measured on 26 November 2026, as above, and with a conversation of four questions (this person,
+their descendants, the places, what was found about the first person) with six minutes before each
+after the first.  Input cost at the prices above; runs on Anthropic were more than five minutes
+apart, so none read another's cache:
+
+| `claude-sonnet-5-5` | Six questions | Four, paused |
+| --- | ---: | ---: |
+| Before | $0.087 | $0.243 |
+| Hour's cache | about $0.115 | $0.117 |
+| Tool groups | $0.079 | $0.185 |
+| Both | about $0.098 | $0.111 |
+
+The six questions with the hour's cache were worked out from the runs, with the system prompt's
+write at the hour's price.  Before, the paused conversation wrote 94,376 tokens to the cache and
+read 65,497; with both, it wrote 30,966 and read 102,102.  The first request with groups was
+13,465 tokens against 18,876 (39 tools shown, 68 declared).  On the descendants question the
+model called `use_tools` for `family_history` by itself, then `get_descendants`, and the
+timeline question used that group without asking again; adding the group cost about 1,680
+tokens at full price once.  Every answer was as before.
+
+OpenAI is sent every tool.  Without `tool_addition`, a group added changes the tools list, so the
+rest of the request is read again; OpenAI charges nothing to write to its cache.  With groups,
+`gpt-5-mini` cost $0.0073 against $0.0078 on the six questions and $0.0030 against $0.0034 on the
+paused conversation, and never called `use_tools`: it read people one at a time with `get_person`
+for the descendants and the timeline.  Those answers were right on the sample tree but would miss
+generations on a deeper one.
+
 **Ollama** (`OllamaChatProvider`, `OllamaServer`): an OpenAI-compatible address on this computer
 at port 11434 is Ollama's, and is called on Ollama's own `/api/chat` at the same host and port,
 since only that one sets the context size and thinking.  Each request sends `options.num_ctx`
@@ -1439,7 +1489,7 @@ Ollama's cache in 0.1 s.  At 24,576 (7.4 GB) and 32,768 (8.2 GB) a share runs on
 reading slows to 14 s and 16 s.
 
 **A model on this computer is sent less** (any local address, `ChatProviders.IsLocal`; hosted models
-are unchanged):
+get the full prompt, and Anthropic gets the tool groups as above):
 
 - **Tool groups** (`ToolGroups`): people (18 tools), family history (9), sources (6), places (3),
   media (3), research (6) and whole tree (9), and one group per connected MCP server
@@ -1797,7 +1847,8 @@ id.
 
 Each tree file has its own conversation, kept until it is cleared: what the pane shows and the
 turns sent to the model (each of the person's messages with the context it was sent with,
-section 22.2), so the model keeps its context, with the MCP tools used recently.  The
+section 22.2, and the groups of tools added for Anthropic, `tools_added`), so the model keeps its
+context, with the MCP tools used recently.  The
 file is `%LocalAppData%\Mycelia\Assistant\<hash>.json`, the hash being the first 16 hex digits
 of SHA-256 of the tree's full path in capitals, and it is DPAPI-encrypted because it holds the
 family's names, dates and places.  A file that can't be read counts as no conversation.  It is
@@ -2525,6 +2576,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 | Date | Version | Change |
 | --- | --- | --- |
 | 26 November 2026 | 0.5.0 (unreleased) | Smaller tool definitions (#11): `Schema` leaves out an empty description, 40 parameter descriptions that only said the name or the enum removed, `NoteRuleShort` in notes parameters, six tool descriptions tightened; the measurements (22.2). |
+| 26 November 2026 | 0.5.0 (unreleased) | Anthropic gets the tools in groups and an hour's cache (#16): deferred tools (`ToolSpec.Deferred`), `ToolsAddedTurn` sent as `tool_addition` and saved as `tools_added`, `HostedGroupsNote`, `ttl: 1h` on the system prompt's mark; OpenAI keeps every tool, measured (22.2, 22.6). |
 | 26 November 2026 | 0.5.0 (unreleased) | Old tool results sent whole to a hosted model (#11): leaving them out was measured and cost more with caching, so it was not kept (22.2). |
 | 26 November 2026 | 0.5.0 (unreleased) | Prompt caching (#11): the context goes with each message (`UserTurn.Context`, `ForModel`, `SavedTurn.Context`) instead of ending the system prompt (`AppendServersAndInstructions`), except for a model on this computer, whose `ShortPrompt` keeps it, with the rules changed to match and the instructions for other programs pointing at `get_context`; Anthropic's system prompt and last message marked `cache_control`; `ToolBudget.Choose` keeps the servers' order; the measurements (22.2, 22.6). |
 | 25 November 2026 | 0.5.0 (unreleased) | A local model is sent less (#8): `ToolGroups` and `use_tools`, the note after an empty reply (`EmptyReplyNote`) and the notice for one from any provider, `ShortPrompt` and `AppendContext`, `ContextFit` for Ollama, the pane's tools line; the measurements (22.2). |
