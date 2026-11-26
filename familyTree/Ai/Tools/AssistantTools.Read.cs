@@ -16,11 +16,11 @@ public sealed partial class AssistantTools
             Schema.Object(), _ => Context(), "Read the context"),
 
         Read("search_people", "Search people",
-            "Finds people by name and, optionally, Soundex surname, sex, birth or death years, a place they have a fact at, and whether they are living. Gives ids for the other tools, a page at a time. Living people's details are withheld, so date and place filters don't match them.",
+            "Finds people by name and optionally Soundex surname, sex, birth or death years, a place they have a fact at, and living or not. Gives ids, a page at a time. Living people's details are withheld, so date and place filters don't match them.",
             Schema.Object(
                 ("name", Schema.String("Part of a name (given names, surname or both, in either order)."), false),
                 ("surname_soundex", Schema.String("A surname: matches surnames that sound alike (Soundex)."), false),
-                ("sex", Schema.String("Male, Female or Unknown.", "Male", "Female", "Unknown"), false),
+                ("sex", Schema.String("", "Male", "Female", "Unknown"), false),
                 ("born_from", Schema.Integer("Born in or after this year."), false),
                 ("born_to", Schema.Integer("Born in or before this year."), false),
                 ("died_from", Schema.Integer("Died in or after this year."), false),
@@ -33,7 +33,7 @@ public sealed partial class AssistantTools
 
         Read("get_person", "Read a person",
             "Everything about one person: names, sex, notes, facts (with each date as typed and as the program reads it, place, description, sources and ids), parents and how each child is related, spouses with their families, marriages and children, media, the relationship to the home person, and data warnings. A living person's details are withheld as the context says.",
-            Schema.Object(("person_id", Schema.String("The person's id."), true)), GetPerson),
+            Schema.Object(("person_id", Schema.String(""), true)), GetPerson),
 
         Read("research_context", "Gather research context",
             "Before researching someone: their facts, notes and research log (what has been searched already, with what result and what to try next), and those of their nearest relatives (parents, spouses, children, brothers and sisters including half; with generations 2 also grandparents and grandchildren), each with how they are related, and the facts and notes of the couples between them. Read it first, to see what the family's notes already hold, whom to look for and where, and how a finding about one person bears on another. Facts are brief; get_person gives one person's sources in full.",
@@ -85,7 +85,7 @@ public sealed partial class AssistantTools
 
         Read("get_place", "Read a place",
             "One place: its full name, coordinates, notes, and the facts at it in date order with whose they are.",
-            Schema.Object(("place_id", Schema.String("The place's id."), true)), GetPlace),
+            Schema.Object(("place_id", Schema.String(""), true)), GetPlace),
 
         Read("list_sources", "List sources",
             "Sources in the tree with their ids, authors and how many citations each has, optionally filtered by title or author.",
@@ -93,7 +93,7 @@ public sealed partial class AssistantTools
 
         Read("get_source", "Read a source",
             "One source: title, author, publication details, call number, repository, comments, and every citation of it with the fact and whose it is.",
-            Schema.Object(("source_id", Schema.String("The source's id."), true)), GetSource),
+            Schema.Object(("source_id", Schema.String(""), true)), GetSource),
 
         Read("list_repositories", "List repositories",
             "Repositories (archives, libraries, websites holding sources) with their ids and addresses.",
@@ -132,14 +132,14 @@ public sealed partial class AssistantTools
         Read("find_text", "Find text",
             "Every field holding some text (names, fact descriptions and notes, notes, place names, source titles, authors, publishers and comments, citation details, media captions): a preview for replace_text.",
             Schema.Object(
-                ("text", Schema.String("The text to find."), true),
+                ("text", Schema.String(""), true),
                 ("match_case", Schema.Boolean("Match capitals exactly (default false)."), false),
                 ("whole_word", Schema.Boolean("Whole words only (default false)."), false)),
             FindText),
 
         Read("parse_date", "Read a date",
             "How the program reads a date as typed (\"Abt. 1850\", \"Bet. 1850 and 1855\", \"3/4/1890\", \"1720/21\"): whether it is valid, how it is shown, its year and the weekday of a full date.",
-            Schema.Object(("date", Schema.String("The date as text."), true)), ParseDate),
+            Schema.Object(("date", Schema.String(""), true)), ParseDate),
 
         Read("date_calculator", "Date calculator",
             "The program's date calculator: the age between two dates (age_between), a birth date from an event date and an age (birth_from_age), or an event date from a birth date and an age (event_from_age).",
@@ -154,7 +154,7 @@ public sealed partial class AssistantTools
 
         Read("soundex", "Soundex",
             "The Soundex code of a surname and the surnames in the tree that share it (spelling variants in old records).",
-            Schema.Object(("surname", Schema.String("The surname."), true)), args =>
+            Schema.Object(("surname", Schema.String(""), true)), args =>
             {
                 var name = args.Str("surname") ?? throw new ArgumentException("surname is required.");
                 var code = Soundex.Code(name);

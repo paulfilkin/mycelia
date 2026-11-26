@@ -44,6 +44,10 @@ The Assistant works properly with Ollama on your own computer.
   this work, these services are sent the tree, the workspace and the selected person with each of
   your messages, as they were when you sent it, instead of at the start of every step.  A model on
   your own computer is sent them as before, since qwen3:8b answered less well the new way.
+- **The Assistant's tools take less room.**  Their descriptions are 6% shorter: wording that only
+  repeated a field's name or its choices is gone, and the rule for what belongs in notes is given
+  in full once rather than in every tool that writes notes.  A request that sends every tool is
+  about 800 tokens smaller.
 - **An empty answer is no longer silent.**  When the model gives no answer, the pane says so.  A
   model on your computer is first asked once more, reminded which tools it can ask for.
 

@@ -1395,6 +1395,29 @@ conversation would have cost Anthropic about $1.19, so caching is what makes a l
 cost less; leaving results out would pay only when large results (web pages, archive searches)
 are most of a long conversation.
 
+**Smaller tool definitions** (#11).  Every tool is sent with every request, so its definition is
+written to the cache at the start of each conversation and after each pause of more than five
+minutes.  The 68 built-in tools were 46,244 characters: 13,009 in tool descriptions and 27,331 in
+schemas, 10,857 of them in the 232 parameters' descriptions.  Three changes, keeping every rule:
+
+- `Schema.String`, `Integer`, `Boolean` and `Array` leave out an empty description.  A parameter
+  whose description only said its name again ("Title.", "New surname.", "The family.") or listed
+  its own enum ("Male, Female or Unknown.") now has none: 40 of them.  Write a description only
+  when it says something the name and enum don't.
+- The notes rule (`NoteRule`) is in full in `add_note`'s description and both system prompts; the
+  notes parameters of `update_person`, `update_place`, `add_fact` and `update_fact` carry a
+  sentence instead (`NoteRuleShort`).
+- The descriptions of `log_research`, `add_note`, `add_citation`, `download_file`,
+  `search_people` and `suggest_resources` were written more tightly.
+
+The tools came to 43,501 characters (5.9% fewer).  On the six questions above, measured on
+26 November 2026, Anthropic's first request went from 19,700 tokens to 18,876 and the
+conversation read 243,158 from the cache (252,053 before) and wrote 25,205 (26,015); OpenAI's
+first request from 10,412 to 9,953.  `claude-sonnet-5-5` and `gpt-5-mini` answered each question
+as before, and qwen3:8b five of the six as before; on the fifth it again showed the wrong
+person's timeline.  The repeated structure of the schemas (`type` and `description` for each
+parameter) is most of what is left.
+
 **Ollama** (`OllamaChatProvider`, `OllamaServer`): an OpenAI-compatible address on this computer
 at port 11434 is Ollama's, and is called on Ollama's own `/api/chat` at the same host and port,
 since only that one sets the context size and thinking.  Each request sends `options.num_ctx`
@@ -2501,6 +2524,7 @@ updates its page in the same change (`CLAUDE.md`, the pull request template).
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 26 November 2026 | 0.5.0 (unreleased) | Smaller tool definitions (#11): `Schema` leaves out an empty description, 40 parameter descriptions that only said the name or the enum removed, `NoteRuleShort` in notes parameters, six tool descriptions tightened; the measurements (22.2). |
 | 26 November 2026 | 0.5.0 (unreleased) | Old tool results sent whole to a hosted model (#11): leaving them out was measured and cost more with caching, so it was not kept (22.2). |
 | 26 November 2026 | 0.5.0 (unreleased) | Prompt caching (#11): the context goes with each message (`UserTurn.Context`, `ForModel`, `SavedTurn.Context`) instead of ending the system prompt (`AppendServersAndInstructions`), except for a model on this computer, whose `ShortPrompt` keeps it, with the rules changed to match and the instructions for other programs pointing at `get_context`; Anthropic's system prompt and last message marked `cache_control`; `ToolBudget.Choose` keeps the servers' order; the measurements (22.2, 22.6). |
 | 25 November 2026 | 0.5.0 (unreleased) | A local model is sent less (#8): `ToolGroups` and `use_tools`, the note after an empty reply (`EmptyReplyNote`) and the notice for one from any provider, `ShortPrompt` and `AppendContext`, `ContextFit` for Ollama, the pane's tools line; the measurements (22.2). |

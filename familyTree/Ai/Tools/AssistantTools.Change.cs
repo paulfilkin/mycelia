@@ -13,24 +13,30 @@ public sealed partial class AssistantTools
     private static readonly string[] Relations = ["parent", "child", "spouse", "sibling"];
 
     /// <summary>
-    /// Added to every notes parameter: a test with a real model (11 November 2026) wrote "please advise if want me to
-    /// search..." into a person's notes.
+    /// Added to add_note's description (and, shorter, to every notes parameter): a test with a real model (11 November
+    /// 2026) wrote "please advise if want me to search..." into a person's notes.
     /// </summary>
     private const string NoteRule = " Notes are part of the tree, read by anyone who opens it later: what is known and where it came from, never questions, suggestions or messages to the person (say those in your reply). Searches, unconfirmed leads and next steps go in the research log (log_research), not in notes.";
+
+    /// <summary>
+    /// The same rule for the notes parameters of other tools, shorter: it is in full in add_note and in both system
+    /// prompts, and every tool is sent with every request (#11, TDD 22.2).
+    /// </summary>
+    private const string NoteRuleShort = " Only what is known and where it came from; questions, offers and next steps go in your reply or log_research.";
 
     private IEnumerable<AssistantTool> ChangeTools() =>
     [
         Write("add_person", "Add a person",
             "Adds a person, optionally with birth and death, and optionally linked to someone already in the tree as their parent, child, spouse or sibling. Gives the new person's id.",
             Schema.Object(
-                ("given_names", Schema.String("Given names."), false),
+                ("given_names", Schema.String(""), false),
                 ("surname", Schema.String("Surname (at birth, for a woman)."), false),
                 ("suffix", Schema.String("Suffix, such as Jr."), false),
-                ("sex", Schema.String("Male, Female or Unknown.", "Male", "Female", "Unknown"), false),
+                ("sex", Schema.String("", "Male", "Female", "Unknown"), false),
                 ("birth_date", Schema.String("Birth date as it should be recorded (\"12 Mar 1890\", \"Abt. 1850\")."), false),
                 ("birth_place", Schema.String("Birth place, most local part first (\"Leeds, Yorkshire, England\")."), false),
-                ("death_date", Schema.String("Death date."), false),
-                ("death_place", Schema.String("Death place."), false),
+                ("death_date", Schema.String(""), false),
+                ("death_place", Schema.String(""), false),
                 ("relation", Schema.String("How the new person is related to relative_id: parent (the new person is their parent), child, spouse or sibling.", Relations), false),
                 ("relative_id", Schema.String("The person already in the tree the new person is related to."), false),
                 ("family_id", Schema.String("For a child: which of the relative's families (couples) the child belongs to; the first if left out."), false),
@@ -43,11 +49,11 @@ public sealed partial class AssistantTools
             "Changes a person's names, sex, notes, Private mark or preferred parents. Only the fields given change. Notes longer than a short paragraph are changed one passage at a time with notes_edit, never retyped whole.",
             Schema.Object(
                 ("person_id", Schema.String("Whose details."), true),
-                ("given_names", Schema.String("New given names."), false),
-                ("surname", Schema.String("New surname."), false),
+                ("given_names", Schema.String(""), false),
+                ("surname", Schema.String(""), false),
                 ("suffix", Schema.String("New suffix (an empty string removes it)."), false),
-                ("sex", Schema.String("Male, Female or Unknown.", "Male", "Female", "Unknown"), false),
-                ("notes", Schema.String($"The whole new notes text (replaces the notes), only for notes of up to {WholeNotesMaxChars} characters; longer notes are changed with notes_edit." + NoteRule), false),
+                ("sex", Schema.String("", "Male", "Female", "Unknown"), false),
+                ("notes", Schema.String($"The whole new notes text (replaces the notes), only for notes of up to {WholeNotesMaxChars} characters; longer notes are changed with notes_edit." + NoteRuleShort), false),
                 ("notes_edit", NotesEditSchema(), false),
                 ("private", Schema.Boolean("Mark the person Private (left out of exports unless chosen)."), false),
                 ("preferred_parents", Schema.String("For someone with two or more sets of parents: the family_id (from get_person's parents) the pedigree and charts should follow."), false)),
@@ -62,23 +68,23 @@ public sealed partial class AssistantTools
             NotesRefusal(args => Doc.GetPerson(args.Str("person_id"))?.Notes)),
 
         Write("log_research", "Log research",
-            "Records research on one question in a person's or a couple's research log: where was searched, what came of it and what to try next. One entry per question: logging the same fact or topic again updates that entry (the places searched are added, the status, result and next steps replaced), so never repeat it as a new one. Log each question once per request, when its searches are done, with everything searched; a second update of the same entry in one request is refused. To take a place out of the searched list, such as a search that didn't run, use remove_searched; to tidy the list, give the whole list as it should be in searched with replace_searched true. Say a place was removed only when the entry this returns no longer lists it. Use it for every search, found or not, and for anyone in the tree the question is about. A record that confirms something also becomes a fact with a citation (add_fact, add_citation); set status Found. Write in the third person, briefly.",
+            "Records research on one question in a person's or a couple's research log: where was searched, what came of it, what to try next. One entry per question: logging the same fact or topic again updates it (places searched are added; status, result and next replaced), so never add it again. Log each question once per request, when its searches are done; a second update of one entry in a request is refused. remove_searched takes places out (a search that didn't run); searched with replace_searched true tidies the whole list. Say a place was removed only when the entry returned no longer lists it. Log every search, found or not, for anyone in the tree the question is about. A record that confirms something also becomes a fact with a citation (add_fact, add_citation); set status Found. Third person, briefly.",
             Schema.Object(
-                ("owner_id", Schema.String("The person's id, or a family's id for a couple's question (a marriage, a divorce)."), true),
-                ("fact_id", Schema.String("The fact the question is about, when there is one (get_person gives fact ids)."), false),
-                ("topic", Schema.String("What the question is about, briefly: \"Death, 3 Nov 1871, Hebden Bridge\". Optional when fact_id is given."), false),
-                ("status", Schema.String("Open (still looking), Found or NotFound.", "Open", "Found", "NotFound"), true),
-                ("searched", Schema.Array(Schema.String("A place searched, by short name and scope: \"FreeBMD deaths 1870-72 (Ashworth, Ashworthe)\", \"TNA Discovery\". Never a search address."), "Where was searched this time."), false),
-                ("result", Schema.String("What came of it, in a sentence or two, third person: \"No index entry, burial or probate found online.\" Required for a new entry; left out, an entry already there keeps its result."), false),
-                ("remove_searched", Schema.Array(Schema.String("A place to take out, as the log lists it or by its first words: \"FreeBMD\" takes out every place starting \"FreeBMD \"."), "Places to take out of the entry's searched list, such as a search that didn't run. Removed before searched is added, so a place can be replaced in one call."), false),
-                ("replace_searched", Schema.Boolean("True: searched becomes the whole searched list, replacing what is there (to tidy repeats and near-repeats). Default false: searched is added to the list."), false),
-                ("next", Schema.Array(Schema.String("One next step: \"GRO online index, Dec quarter 1871, Todmorden\"."), "What to try next (replaces the entry's next steps)."), false)),
+                ("owner_id", Schema.String("A person's id, or a family's id for a couple's question (marriage, divorce)."), true),
+                ("fact_id", Schema.String("The fact the question is about, if any (get_person gives fact ids)."), false),
+                ("topic", Schema.String("Briefly, when there is no fact_id: \"Death, 3 Nov 1871, Hebden Bridge\"."), false),
+                ("status", Schema.String("Open while still looking.", "Open", "Found", "NotFound"), true),
+                ("searched", Schema.Array(Schema.String("Short name and scope: \"FreeBMD deaths 1870-72 (Ashworth, Ashworthe)\", \"TNA Discovery\". Never a search address."), "Where was searched this time."), false),
+                ("result", Schema.String("What came of it, one or two sentences: \"No index entry, burial or probate found online.\" Needed for a new entry; left out, the entry keeps its result."), false),
+                ("remove_searched", Schema.Array(Schema.String("As the log lists it, or its first words: \"FreeBMD\" takes out every place starting \"FreeBMD \"."), "Places to take out of the searched list, before searched is added."), false),
+                ("replace_searched", Schema.Boolean("True: searched replaces the whole list (to tidy repeats). Default false: it is added."), false),
+                ("next", Schema.Array(Schema.String("One step: \"GRO online index, Dec quarter 1871, Todmorden\"."), "What to try next (replaces the entry's next steps)."), false)),
             LogResearch,
             DescribeLogResearch,
             LogResearchRefusal),
 
         Write("add_note", "Add to notes",
-            "Adds one short dated paragraph to the end of a person's or a couple's notes; what is there already is kept. Only for context that fits no fact and is no search: a family story, how two records were matched, an address that isn't a residence fact. Searches and their outcomes go in log_research; a record found becomes a fact with add_fact and add_citation. One or two sentences, third person, no list." + NoteRule,
+            "Adds one short dated paragraph to the end of a person's or a couple's notes, keeping what is there. Only for context that fits no fact and is no search: a family story, how two records were matched, an address that isn't a residence fact. A record found becomes a fact with add_fact and add_citation. One or two sentences, third person, no list." + NoteRule,
             Schema.Object(
                 ("owner_id", Schema.String("The person's id, or a family's id for a couple's notes."), true),
                 ("text", Schema.String($"The finding, in one or two sentences, at most {NoteMaxChars} characters."), true),
@@ -144,7 +150,7 @@ public sealed partial class AssistantTools
                 ("date", Schema.String("The date as it should be recorded (\"12 Mar 1890\", \"Abt. 1850\", \"Bet. 1850 and 1855\")."), false),
                 ("place", Schema.String("The place, most local part first; an existing place with the same name is used."), false),
                 ("description", Schema.String("The description (an occupation's name, a residence's address...)."), false),
-                ("note", Schema.String("A note on the fact." + NoteRule), false),
+                ("note", Schema.String("A note on the fact." + NoteRuleShort), false),
                 ("private", Schema.Boolean("Mark the fact Private."), false),
                 ("preferred", Schema.Boolean("Make it the preferred fact of its type (the first of a type always is)."), false)),
             AddFact,
@@ -153,12 +159,12 @@ public sealed partial class AssistantTools
         Write("update_fact", "Change a fact",
             "Changes a fact's type, date, place, description, note, Private mark or whether it is preferred. Only the fields given change; an empty string clears a field.",
             Schema.Object(
-                ("fact_id", Schema.String("The fact's id."), true),
+                ("fact_id", Schema.String(""), true),
                 ("type", Schema.String("A new fact type."), false),
                 ("date", Schema.String("The new date as it should be recorded."), false),
-                ("place", Schema.String("The new place."), false),
-                ("description", Schema.String("The new description."), false),
-                ("note", Schema.String("The new note." + NoteRule), false),
+                ("place", Schema.String(""), false),
+                ("description", Schema.String(""), false),
+                ("note", Schema.String("The new note." + NoteRuleShort), false),
                 ("private", Schema.Boolean("Private or not."), false),
                 ("preferred", Schema.Boolean("Make it the preferred fact of its type."), false)),
             UpdateFact,
@@ -166,7 +172,7 @@ public sealed partial class AssistantTools
 
         Write("delete_fact", "Delete a fact",
             "Deletes a fact and its citations.",
-            Schema.Object(("fact_id", Schema.String("The fact's id."), true)),
+            Schema.Object(("fact_id", Schema.String(""), true)),
             args =>
             {
                 var (fact, list, owner) = FactArg(args);
@@ -182,7 +188,7 @@ public sealed partial class AssistantTools
             args => $"Delete {FactLabel(args.Str("fact_id"))}."),
 
         Write("add_citation", "Cite a source",
-            "Cites a source for a fact: where in the source (page, entry, reference), the record's own web address and when it was looked at, and a transcription or extract of what it says. Name an existing source by id, or give a title: a source with that exact title is used, or a new one is made. Cite the fact for the event the record is of: a baptism entry goes on a Baptism fact, not on the Birth.",
+            "Cites a source for a fact: where in it (page, entry, reference), the record's own web address, when it was looked at, and what the record says. Give a source id, or a title: a source with that exact title is used or made. Cite the fact for the event the record is of: a baptism entry on a Baptism fact, not the Birth.",
             Schema.Object(
                 ("fact_id", Schema.String("The fact the source supports: the one for the event the record is of."), true),
                 ("source_id", Schema.String("An existing source's id."), false),
@@ -203,7 +209,7 @@ public sealed partial class AssistantTools
         Write("remove_citation", "Remove a citation",
             "Removes a source's citation from a fact (the source stays).",
             Schema.Object(
-                ("fact_id", Schema.String("The fact."), true),
+                ("fact_id", Schema.String(""), true),
                 ("source_id", Schema.String("The cited source."), true)),
             args =>
             {
@@ -248,10 +254,10 @@ public sealed partial class AssistantTools
         Write("add_repository", "Add a repository",
             "Adds a repository (an archive, library or website holding sources). Gives its id.",
             Schema.Object(
-                ("name", Schema.String("Name."), true),
-                ("address", Schema.String("Address."), false),
-                ("phone", Schema.String("Phone."), false),
-                ("email", Schema.String("Email."), false)),
+                ("name", Schema.String(""), true),
+                ("address", Schema.String(""), false),
+                ("phone", Schema.String(""), false),
+                ("email", Schema.String(""), false)),
             args =>
             {
                 var name = args.Str("name") ?? throw new ArgumentException("name is required.");
@@ -273,7 +279,7 @@ public sealed partial class AssistantTools
                 ("name", Schema.String("The new full name."), false),
                 ("latitude", Schema.String("Latitude in decimal degrees (51.4545)."), false),
                 ("longitude", Schema.String("Longitude in decimal degrees (-2.5879)."), false),
-                ("notes", Schema.String($"The whole new notes text, only for notes of up to {WholeNotesMaxChars} characters; longer notes are changed with notes_edit." + NoteRule), false),
+                ("notes", Schema.String($"The whole new notes text, only for notes of up to {WholeNotesMaxChars} characters; longer notes are changed with notes_edit." + NoteRuleShort), false),
                 ("notes_edit", NotesEditSchema(), false)),
             args =>
             {
@@ -320,8 +326,8 @@ public sealed partial class AssistantTools
         Write("link_parent", "Link a parent",
             "Makes someone already in the tree a parent of a person.",
             Schema.Object(
-                ("child_id", Schema.String("The child."), true),
-                ("parent_id", Schema.String("The parent."), true),
+                ("child_id", Schema.String(""), true),
+                ("parent_id", Schema.String(""), true),
                 ("relationship", Schema.String("How the child is related to this parent (default Natural).", EnumNames<ChildNature>()), false)),
             args =>
             {
@@ -377,8 +383,8 @@ public sealed partial class AssistantTools
         Write("link_child", "Link a child",
             "Makes someone already in the tree a child of a person, in one of their families (couples); the first family, or a new single-parent family, when none is named.",
             Schema.Object(
-                ("parent_id", Schema.String("The parent."), true),
-                ("child_id", Schema.String("The child."), true),
+                ("parent_id", Schema.String(""), true),
+                ("child_id", Schema.String(""), true),
                 ("family_id", Schema.String("Which of the parent's families."), false),
                 ("relationship", Schema.String("How the child is related to the parents (default Natural).", EnumNames<ChildNature>()), false)),
             args =>
@@ -401,7 +407,7 @@ public sealed partial class AssistantTools
         Write("unlink", "Unlink from a family",
             "Takes a person out of a family: a child from their parents, or a partner from a couple. Nobody is deleted.",
             Schema.Object(
-                ("family_id", Schema.String("The family."), true),
+                ("family_id", Schema.String(""), true),
                 ("person_id", Schema.String("The child or partner to take out."), true)),
             args =>
             {
@@ -452,7 +458,7 @@ public sealed partial class AssistantTools
         Write("update_family", "Change a family",
             "Changes a couple's type and status, or how one child is related to each partner.",
             Schema.Object(
-                ("family_id", Schema.String("The family."), true),
+                ("family_id", Schema.String(""), true),
                 ("couple_type", Schema.String("The couple's type.", EnumNames<CoupleType>()), false),
                 ("status", Schema.String("The couple's status.", EnumNames<CoupleStatus>()), false),
                 ("child_id", Schema.String("A child whose relationship to the partners changes."), false),
@@ -485,7 +491,7 @@ public sealed partial class AssistantTools
                 ("caption", Schema.String("Caption (the file name if left out)."), false),
                 ("date", Schema.String("Date of the picture or document."), false),
                 ("category", Schema.String("Category (Photo, Document, Certificate...)."), false),
-                ("description", Schema.String("Description."), false),
+                ("description", Schema.String(""), false),
                 ("person_ids", Schema.Array(Schema.String("A person's id."), "People in the item."), false),
                 ("portrait_of", Schema.String("Make it this person's portrait."), false)),
             AddMedia,
@@ -494,8 +500,8 @@ public sealed partial class AssistantTools
         Write("link_media", "Link a media item",
             "Links a media item to a person, optionally as their portrait.",
             Schema.Object(
-                ("media_id", Schema.String("The media item."), true),
-                ("person_id", Schema.String("The person."), true),
+                ("media_id", Schema.String(""), true),
+                ("person_id", Schema.String(""), true),
                 ("portrait", Schema.Boolean("Make it the person's portrait."), false)),
             args =>
             {
@@ -539,12 +545,12 @@ public sealed partial class AssistantTools
         Write("add_historical_event", "Add a historical event",
             "Adds a historical event to the tree's timelines (a war, an epidemic, a local disaster, a change in the law).",
             Schema.Object(
-                ("title", Schema.String("Title."), true),
+                ("title", Schema.String(""), true),
                 ("date", Schema.String("Date or start date."), true),
                 ("end_date", Schema.String("End date, when it lasted a while."), false),
                 ("region", Schema.String("Where it applies (\"United Kingdom\", \"World\")."), false),
                 ("category", Schema.String("Category (War, Health, Law...)."), false),
-                ("description", Schema.String("Description."), false)),
+                ("description", Schema.String(""), false)),
             args =>
             {
                 var title = args.Str("title") ?? throw new ArgumentException("title is required.");
@@ -1211,16 +1217,16 @@ public sealed partial class AssistantTools
 
     private static JsonObject SourceSchema(bool withId) => Schema.Object(
         ("source_id", Schema.String("The source to change."), withId),
-        ("title", Schema.String("Title."), !withId),
+        ("title", Schema.String(""), !withId),
         ("author", Schema.String("Author or originator."), false),
-        ("publisher", Schema.String("Publisher."), false),
+        ("publisher", Schema.String(""), false),
         ("publisher_location", Schema.String("Where it was published."), false),
         ("publish_date", Schema.String("When it was published."), false),
         ("call_number", Schema.String("Call number or reference in the repository."), false),
         ("repository_id", Schema.String("The repository holding it."), false),
         ("repository_name", Schema.String("Or a repository's name (found or created)."), false),
         ("url", Schema.String("The source's web address (an online database, catalogue entry or digitised book)."), false),
-        ("comments", Schema.String("Comments."), false));
+        ("comments", Schema.String(""), false));
 
     /// <summary>The repository named by id or name; with <paramref name="create"/> a new one is made for an unknown name.</summary>
     private Repository? RepositoryFor(JsonObject args, bool create)
